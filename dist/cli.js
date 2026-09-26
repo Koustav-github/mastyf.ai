@@ -535,6 +535,9 @@ boundaryCmd
     .option('-m, --manifest <path>', 'Boundary manifest path (default: boundary.yaml)')
     .option('-o, --output <path>', 'Write attestation JSON (default: cmq-attestation.json)')
     .option('--json', 'Output raw machine-readable JSON to stdout')
+    .option('--require-qualified', 'Enforce strict CI/CD gate: exit 1 if verdict is not QUALIFIED or any boundary leak exists')
+    .option('--continuous', 'Run continuous requalification loop')
+    .option('--interval <seconds>', 'Interval in seconds between qualification cycles (default: 300)')
     .action(async (opts) => {
     const { handleBoundaryQualify } = await import('./boundary/cli-commands.js');
     await handleBoundaryQualify(opts);

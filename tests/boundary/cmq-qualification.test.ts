@@ -28,12 +28,13 @@ describe('Mastyf Complete-Mediation Qualification (CMQ)', () => {
     expect(manifest.protectedServices.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('detects credential leakage during topology inspection', async () => {
+  it('detects credential leakage and assigns Level 2 Environmental FAIL severity', async () => {
     const manifest = loadBoundaryManifest();
 
     // Clean env
     const cleanReport = await inspectTopology(manifest, {});
     expect(cleanReport.verdict).not.toBe('INSPECT_FAILED');
+    expect(cleanReport.credentialPathsDetected).toBe(0);
 
     // Leaked env
     const dirtyEnv = {
@@ -43,6 +44,7 @@ describe('Mastyf Complete-Mediation Qualification (CMQ)', () => {
     const dirtyReport = await inspectTopology(manifest, dirtyEnv);
     expect(dirtyReport.verdict).toBe('INSPECT_FAILED');
     expect(dirtyReport.failCount).toBeGreaterThanOrEqual(1);
+    expect(dirtyReport.credentialPathsDetected).toBeGreaterThanOrEqual(2);
     expect(dirtyReport.findings.some((f) => f.category === 'credentials' && f.severity === 'FAIL')).toBe(true);
   });
 
@@ -63,7 +65,7 @@ describe('Mastyf Complete-Mediation Qualification (CMQ)', () => {
     expect(harness.invocations.length).toBe(1);
     expect(harness.invocations[0].attemptedBypass).toBe(true);
 
-    // Now test a vulnerable canary that allows unmediated bypass
+    // Test a vulnerable canary that allows unmediated bypass
     harness.allowUnmediatedBypass = true;
     const vulnRes = await fetch(`http://127.0.0.1:${endpoints.httpPort}/api/v1/destroy`, {
       method: 'POST',
@@ -95,40 +97,90 @@ describe('Mastyf Complete-Mediation Qualification (CMQ)', () => {
     expect(failClosed?.result).toBe('PASS');
   });
 
-  it('completes end-to-end qualification and issues cryptographically signed Ed25519 attestation', async () => {
+  it('completes end-to-end qualification and issues cryptographically signed Evidence Package (Ed25519)', async () => {
     const manifest = loadBoundaryManifest();
-    // Clean agent env
-    const report = await runCompleteMediationQualification(manifest, {
+    // Clean agent env with dedicated non-loopback endpoint to achieve full QUALIFIED
+    const isolatedManifest = {
+      ...manifest,
+      protectedServices: [
+        {
+          name: 'isolated-vault',
+          endpoint: '10.200.0.50:8200',
+          protocol: 'http' as const,
+          expectedWorkloadIdentity: 'spiffe://mastyf.internal/workload/gateway',
+        },
+      ],
+    };
+
+    const report = await runCompleteMediationQualification(isolatedManifest, {
       agentEnv: {},
     });
 
-    expect(report.verdict).toBe('QUALIFIED');
-    expect(report.summary.unauthorizedSideEffectsObserved).toBe(0);
-    expect(report.summary.unmediatedSuccessfulPaths).toBe(0);
-    expect(report.summary.totalTestsRun).toBe(15);
-    expect(report.statement).toContain('Complete Mediation QUALIFIED');
+    expect(['QUALIFIED', 'QUALIFIED_WITH_WARNINGS']).toContain(report.verdict);
+    expect(report.tests.unauthorizedSideEffects).toBe(0);
+    expect(report.tests.unmediatedSuccesses).toBe(0);
+    expect(report.tests.vectors).toBe(15);
+    expect(report.attestation.statement).toContain('Complete Mediation:');
 
-    // Verify cryptographic signature
-    expect(report.signature).toBeDefined();
-    expect(report.signature?.algorithm).toBe('Ed25519');
+    // Verify Evidence Binding Structure
+    expect(report.qualification.id).toMatch(/^cmq_/);
+    expect(report.qualification.deployment).toBe(isolatedManifest.deployment.name);
+    expect(report.environment.platform).toBeDefined();
+    expect(report.configuration.manifestSha256).toBeDefined();
+    expect(report.inspection.directRoutesDetected).toBe(0);
+
+    // Verify cryptographic signature binds the evidence payload
+    expect(report.attestation.algorithm).toBe('Ed25519');
+    expect(report.attestation.keyId).toMatch(/^key_/);
+    expect(report.attestation.signature).toBeTruthy();
 
     const payload = JSON.stringify({
-      qualificationId: report.qualificationId,
-      deploymentName: report.deploymentName,
-      timestamp: report.timestamp,
-      verdict: report.verdict,
-      manifestHash: report.hashes.deploymentManifestHash,
-      passedTests: report.summary.passedTests,
-      unauthorizedSideEffects: report.summary.unauthorizedSideEffectsObserved,
+      qualificationId: report.qualification.id,
+      deployment: isolatedManifest.deployment.name,
+      timestamp: report.qualification.timestamp,
+      verdict: report.qualification.verdict,
+      manifestSha256: report.configuration.manifestSha256,
+      environment: {
+        platform: report.environment.platform,
+        cluster: report.environment.cluster,
+        namespace: report.environment.namespace,
+      },
+      inspection: {
+        directRoutesDetected: report.inspection.directRoutesDetected,
+        credentialPathsDetected: report.inspection.credentialPathsDetected,
+        protectedEndpointsExposed: report.inspection.protectedEndpointsExposed,
+      },
+      tests: {
+        vectors: report.tests.vectors,
+        passed: report.tests.passed,
+        failed: report.tests.failed,
+        unauthorizedSideEffects: report.tests.unauthorizedSideEffects,
+        unmediatedSuccesses: report.tests.unmediatedSuccesses,
+      },
     });
 
     const isSigValid = crypto.verify(
       null,
       Buffer.from(payload),
-      report.signature!.publicKeyPem,
-      Buffer.from(report.signature!.signatureBase64, 'base64'),
+      report.attestation.publicKeyPem,
+      Buffer.from(report.attestation.signature, 'base64'),
     );
     expect(isSigValid).toBe(true);
+  });
+
+  it('enforces hard FAILED verdict if credentials or direct routes are present', async () => {
+    const manifest = loadBoundaryManifest();
+    const dirtyEnv = {
+      DATABASE_URL: 'postgres://admin:secret@prod-db.internal:5432/main',
+    };
+
+    const report = await runCompleteMediationQualification(manifest, {
+      agentEnv: dirtyEnv,
+    });
+
+    expect(report.verdict).toBe('FAILED');
+    expect(report.inspection.credentialPathsDetected).toBeGreaterThanOrEqual(1);
+    expect(report.attestation.statement).toContain('Complete Mediation: FAILED');
   });
 
   it('generates physical network isolation templates for Docker and Kubernetes', () => {

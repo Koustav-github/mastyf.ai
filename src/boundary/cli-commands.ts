@@ -2,11 +2,11 @@
  * CMQ CLI Command Implementations.
  *
  * Provides `mastyf boundary` subcommands:
- * - inspect
- * - test
- * - qualify
- * - report
- * - template
+ * - inspect: Level 1 & Level 2 declarative and environmental checks
+ * - test: Level 3 active canary escape tests
+ * - qualify: Full evidence-bound Complete-Mediation Qualification with Ed25519 attestation
+ * - report: Formats and verifies an existing signed attestation
+ * - template: Generates dual-network Docker and K8s boundary templates
  */
 
 import fs from 'node:fs';
@@ -25,7 +25,7 @@ export async function handleBoundaryInspect(opts: { manifest?: string }): Promis
 
   const report = await inspectTopology(manifest);
 
-  console.log(chalk.dim('─'.repeat(70)));
+  console.log(chalk.dim('─'.repeat(74)));
   for (const f of report.findings) {
     const icon =
       f.severity === 'PASS'
@@ -33,13 +33,14 @@ export async function handleBoundaryInspect(opts: { manifest?: string }): Promis
         : f.severity === 'WARN'
           ? chalk.yellow('⚠')
           : chalk.red('✗');
-    console.log(`${icon} [${f.category.toUpperCase()}] ${chalk.bold(f.title)}`);
+    const lvl = f.level === 'LEVEL_1_DECLARATIVE' ? chalk.dim('[L1-DECL]') : chalk.cyan('[L2-ENV]');
+    console.log(`${icon} ${lvl} [${f.category.toUpperCase()}] ${chalk.bold(f.title)}`);
     console.log(`   ${chalk.dim(f.detail)}`);
     if (f.remediation) {
       console.log(`   ${chalk.cyan('Remediation:')} ${f.remediation}`);
     }
   }
-  console.log(chalk.dim('─'.repeat(70)));
+  console.log(chalk.dim('─'.repeat(74)));
 
   const verdictColor =
     report.verdict === 'INSPECT_PASSED'
@@ -48,7 +49,9 @@ export async function handleBoundaryInspect(opts: { manifest?: string }): Promis
         ? chalk.yellow.bold('INSPECT WARNING')
         : chalk.red.bold('INSPECT FAILED');
 
-  console.log(`Verdict: ${verdictColor} (${report.passCount} pass, ${report.warnCount} warn, ${report.failCount} fail)\n`);
+  console.log(
+    `Verdict: ${verdictColor} (${report.passCount} pass, ${report.warnCount} warn, ${report.failCount} fail) | Direct Routes: ${report.directRoutesDetected} | Leaked Creds: ${report.credentialPathsDetected}\n`,
+  );
 }
 
 export async function handleBoundaryTest(opts: { manifest?: string; canaryId?: string }): Promise<void> {
@@ -62,13 +65,13 @@ export async function handleBoundaryTest(opts: { manifest?: string; canaryId?: s
 
   try {
     const results = await runEscapeSuite(manifest, harness);
-    console.log(chalk.dim('─'.repeat(70)));
+    console.log(chalk.dim('─'.repeat(74)));
     for (const r of results) {
       const icon = r.result === 'PASS' ? chalk.green('✓') : chalk.red('✗');
       console.log(`${icon} ${chalk.bold(r.title)} ➔ ${r.result === 'PASS' ? chalk.green('BLOCKED') : chalk.red('BYPASSED')}`);
       console.log(`   ${chalk.dim(r.details)}`);
     }
-    console.log(chalk.dim('─'.repeat(70)));
+    console.log(chalk.dim('─'.repeat(74)));
 
     const unauthorized = harness.getUnauthorizedSideEffectsCount();
     if (unauthorized === 0) {
@@ -85,24 +88,60 @@ export async function handleBoundaryQualify(opts: {
   manifest?: string;
   output?: string;
   json?: boolean;
+  requireQualified?: boolean;
+  continuous?: boolean;
+  interval?: string | number;
 }): Promise<void> {
   const manifest = loadBoundaryManifest(opts.manifest);
-  console.log(chalk.bold(`\nExecuting Complete-Mediation Qualification (CMQ) on: ${manifest.deployment.name}...`));
 
-  const report = await runCompleteMediationQualification(manifest);
+  const runCycle = async () => {
+    const report = await runCompleteMediationQualification(manifest);
 
-  if (opts.json) {
-    console.log(JSON.stringify(report, null, 2));
+    if (opts.json) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(formatTerminalReport(report));
+    }
+
+    const outputPath = opts.output || path.join(process.cwd(), 'cmq-attestation.json');
+    fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), 'utf-8');
+    if (!opts.json) {
+      console.log(chalk.dim(`Signed evidence attestation saved to: ${outputPath}\n`));
+    }
+
+    const strictlyQualified =
+      report.verdict === 'QUALIFIED' &&
+      report.inspection.directRoutesDetected === 0 &&
+      report.inspection.credentialPathsDetected === 0 &&
+      report.tests.unauthorizedSideEffects === 0 &&
+      report.tests.unmediatedSuccesses === 0 &&
+      report.tests.failed === 0;
+
+    if (opts.requireQualified && !strictlyQualified) {
+      console.error(
+        chalk.red.bold(
+          `\n[CI/CD GATE FAILED] Deployment failed strict Complete Mediation qualification requirement! Verdict: ${report.verdict} (direct_routes: ${report.inspection.directRoutesDetected}, leaked_creds: ${report.inspection.credentialPathsDetected}, unauthorized_side_effects: ${report.tests.unauthorizedSideEffects}, test_failures: ${report.tests.failed})\n`,
+        ),
+      );
+      process.exitCode = 1;
+    } else if (report.verdict === 'FAILED' || report.verdict === 'NOT_QUALIFIABLE') {
+      process.exitCode = 1;
+    }
+
+    return report;
+  };
+
+  if (opts.continuous) {
+    const intervalSec = typeof opts.interval === 'number' ? opts.interval : parseInt(String(opts.interval || '300'), 10);
+    console.log(chalk.cyan.bold(`Starting Continuous CMQ Requalification (cycle every ${intervalSec}s)...`));
+    await runCycle();
+
+    setInterval(async () => {
+      console.log(chalk.dim(`\n[${new Date().toISOString()}] Executing continuous requalification cycle...`));
+      await runCycle();
+    }, intervalSec * 1000);
   } else {
-    console.log(formatTerminalReport(report));
-  }
-
-  const outputPath = opts.output || path.join(process.cwd(), 'cmq-attestation.json');
-  fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), 'utf-8');
-  console.log(chalk.dim(`Cryptographic attestation certificate saved to: ${outputPath}\n`));
-
-  if (report.verdict !== 'QUALIFIED') {
-    process.exitCode = 1;
+    await runCycle();
   }
 }
 

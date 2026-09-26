@@ -1,8 +1,8 @@
 /**
  * Mastyf Complete-Mediation Qualification (CMQ) Type Definitions.
  *
- * Formal verification that an autonomous agent has no usable path
- * to a protected side effect except through Mastyf.
+ * Operational mechanism for empirically qualifying A1 Complete Mediation:
+ * Agent ↛ ProtectedSystem except through Agent → Mastyf → ProtectedSystem.
  */
 
 export interface ProtectedServiceSpec {
@@ -11,6 +11,7 @@ export interface ProtectedServiceSpec {
   protocol: 'mcp' | 'http' | 'https' | 'postgres' | 'tcp' | 'uds';
   requiredAuth?: string;
   expectedWorkloadIdentity?: string;
+  imageDigest?: string;
 }
 
 export interface BoundaryManifest {
@@ -19,6 +20,10 @@ export interface BoundaryManifest {
     name: string;
     environment?: 'local' | 'docker' | 'kubernetes' | 'production' | string;
     platform?: 'darwin' | 'linux' | 'win32' | 'container' | string;
+    cluster?: string;
+    namespace?: string;
+    agentImageDigest?: string;
+    mastyfImageDigest?: string;
   };
   agent: {
     identity: string;
@@ -40,10 +45,18 @@ export interface BoundaryManifest {
     gatewayAccess: string[];
     canaryToken?: string;
   };
+  policies?: {
+    securityPolicyPath?: string;
+    networkPolicyPath?: string;
+    mcpConfigPath?: string;
+  };
 }
+
+export type CMQEvidenceLevel = 'LEVEL_1_DECLARATIVE' | 'LEVEL_2_ENVIRONMENTAL' | 'LEVEL_3_ADVERSARIAL';
 
 export interface TopologyFinding {
   id: string;
+  level: CMQEvidenceLevel;
   category: 'network' | 'credentials' | 'socket' | 'shell' | 'process' | 'filesystem';
   title: string;
   severity: 'PASS' | 'WARN' | 'FAIL';
@@ -59,6 +72,9 @@ export interface TopologyInspectionReport {
   passCount: number;
   warnCount: number;
   failCount: number;
+  directRoutesDetected: number;
+  credentialPathsDetected: number;
+  protectedEndpointsExposed: number;
   verdict: 'INSPECT_PASSED' | 'INSPECT_WARNING' | 'INSPECT_FAILED';
   findings: TopologyFinding[];
 }
@@ -92,14 +108,75 @@ export interface CMQSingleTestResult {
   details: string;
 }
 
-export type CMQQualificationVerdict = 'QUALIFIED' | 'NOT_QUALIFIED' | 'INCONCLUSIVE';
+export type CMQQualificationVerdict =
+  | 'QUALIFIED'
+  | 'QUALIFIED_WITH_WARNINGS'
+  | 'FAILED'
+  | 'NOT_QUALIFIABLE';
+
+export interface CMQEnvironmentEvidence {
+  platform: 'kubernetes' | 'docker' | 'local' | string;
+  cluster?: string;
+  namespace?: string;
+  agentImageDigest?: string;
+  mastyfImageDigest?: string;
+  toolImageDigests?: string[];
+  hostArchitecture?: string;
+  osVersion?: string;
+}
+
+export interface CMQConfigurationEvidence {
+  manifestSha256: string;
+  policySha256?: string;
+  networkPolicySha256?: string;
+  mcpConfigSha256?: string;
+}
+
+export interface CMQInspectionSummary {
+  directRoutesDetected: number;
+  credentialPathsDetected: number;
+  protectedEndpointsExposed: number;
+  findingsCount: number;
+  verdict: 'INSPECT_PASSED' | 'INSPECT_WARNING' | 'INSPECT_FAILED';
+}
+
+export interface CMQTestSummary {
+  vectors: number;
+  passed: number;
+  failed: number;
+  unauthorizedSideEffects: number;
+  unmediatedSuccesses: number;
+}
 
 export interface CMQAttestationReport {
+  // Canonical Signed Evidence Package
+  qualification: {
+    id: string;
+    deployment: string;
+    verdict: CMQQualificationVerdict;
+    timestamp: string;
+    scope: string;
+  };
+  environment: CMQEnvironmentEvidence;
+  configuration: CMQConfigurationEvidence;
+  inspection: CMQInspectionSummary & { findings: TopologyFinding[] };
+  tests: CMQTestSummary & { results: CMQSingleTestResult[] };
+  attestation: {
+    algorithm: 'Ed25519';
+    keyId: string;
+    signature: string;
+    publicKeyPem: string;
+    statement: string;
+  };
+
+  // Backwards compatibility convenience fields
   qualificationId: string;
   version: string;
   deploymentName: string;
   timestamp: string;
   scope: string;
+  verdict: CMQQualificationVerdict;
+  statement: string;
   summary: {
     protectedServicesCount: number;
     totalTestsRun: number;
@@ -109,10 +186,7 @@ export interface CMQAttestationReport {
     unauthorizedSideEffectsObserved: number;
     unmediatedSuccessfulPaths: number;
   };
-  verdict: CMQQualificationVerdict;
-  statement: string;
   testResults: CMQSingleTestResult[];
-  inspection: TopologyInspectionReport;
   hashes: {
     deploymentManifestHash: string;
     testSuiteVersion: string;
