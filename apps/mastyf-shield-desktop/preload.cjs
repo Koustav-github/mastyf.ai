@@ -17,4 +17,8 @@ contextBridge.exposeInMainWorld('mastyfShield', {
   licenseStatus: () => ipcRenderer.invoke('shield:license-status'),
   activateLicense: (token) => ipcRenderer.invoke('shield:activate-license', token),
   openExternal: (url) => ipcRenderer.invoke('shield:open-external', url),
+  discoverAgents: () => ipcRenderer.invoke('shield:discover-agents'),
+  protectAgent: (clientId, options) => ipcRenderer.invoke('shield:protect-agent', clientId, options),
+  unprotectAgent: (clientId, options) => ipcRenderer.invoke('shield:unprotect-agent', clientId, options),
+  protectAllAgents: (options) => ipcRenderer.invoke('shield:protect-all-agents', options),
 });

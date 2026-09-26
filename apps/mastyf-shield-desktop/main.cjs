@@ -31,6 +31,7 @@ const { resolveApplianceHomes, resolveAutostart } = require('./resolve-appliance
 const { resolveAppliancePorts, evaluateForeignStack } = require('./resolve-appliance-ports.cjs');
 const { resolveStackLayout, evaluatePackagedStack } = require('./resolve-stack.cjs');
 const licenseLocal = require('./license-local.cjs');
+const agentDiscovery = require('./agent-auto-discovery.cjs');
 
 if (app.isPackaged) {
   app.setName('Mastyf Shield');
@@ -999,6 +1000,172 @@ function buildAppMenu() {
       ],
     },
     {
+      label: 'Agents',
+      submenu: [
+        {
+          label: 'Scan & Auto-Discover Agents',
+          accelerator: 'CmdOrCtrl+Shift+A',
+          click: async () => {
+            const agents = agentDiscovery.discoverAllAgents({ repoRoot: REPO_ROOT });
+            const installed = agents.filter((a) => a.installed);
+            const lines = installed.map((a) => {
+              const statusStr = a.isFullyProtected
+                ? 'PROTECTED (100%)'
+                : `${a.unprotectedServers} unmediated of ${a.totalServers} servers`;
+              return `• ${a.name}: ${statusStr}\n  Config: ${a.configPath}`;
+            });
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'Agent Auto-Discovery',
+              message: `Detected ${installed.length} AI developer clients:`,
+              detail: lines.length > 0 ? lines.join('\n\n') : 'No supported AI client configs detected.',
+            });
+          },
+        },
+        { type: 'separator' },
+        {
+          label: '1-Click Protect Claude Desktop',
+          click: async () => {
+            const claude = agentDiscovery.discoverAllAgents({ repoRoot: REPO_ROOT }).find((a) => a.id === 'claude');
+            if (!claude || !claude.installed) {
+              dialog.showMessageBox({
+                type: 'warning',
+                title: 'Claude Desktop',
+                message: 'Claude Desktop configuration not found on this machine.',
+              });
+              return;
+            }
+            if (claude.isFullyProtected) {
+              dialog.showMessageBox({
+                type: 'info',
+                title: 'Claude Desktop',
+                message: 'Claude Desktop is already fully protected.',
+                detail: `All ${claude.totalServers} MCP servers are mediated through Mastyf Shield.`,
+              });
+              return;
+            }
+            const confirm = dialog.showMessageBoxSync({
+              type: 'question',
+              buttons: ['Protect Now', 'Cancel'],
+              defaultId: 0,
+              cancelId: 1,
+              title: 'Protect Claude Desktop',
+              message: `Mediate ${claude.unprotectedServers} unmediated servers in Claude Desktop?`,
+              detail: `This creates a safe backup at ${claude.configPath}.bak.<timestamp> and routes tool calls through Mastyf Gateway with zero-byte policy enforcement.`,
+            });
+            if (confirm === 0) {
+              const res = agentDiscovery.protectAgent('claude', { repoRoot: REPO_ROOT });
+              dialog.showMessageBox({
+                type: res.ok ? 'info' : 'error',
+                title: 'Claude Desktop Protection',
+                message: res.ok ? 'Claude Desktop Protected Successfully' : 'Protection Failed',
+                detail: res.message || res.error,
+              });
+            }
+          },
+        },
+        {
+          label: '1-Click Protect Cursor',
+          click: async () => {
+            const cursor = agentDiscovery.discoverAllAgents({ repoRoot: REPO_ROOT }).find((a) => a.id === 'cursor');
+            if (!cursor || !cursor.installed) {
+              dialog.showMessageBox({
+                type: 'warning',
+                title: 'Cursor IDE',
+                message: 'Cursor configuration not found on this machine.',
+              });
+              return;
+            }
+            if (cursor.isFullyProtected) {
+              dialog.showMessageBox({
+                type: 'info',
+                title: 'Cursor IDE',
+                message: 'Cursor is already fully protected.',
+                detail: `All ${cursor.totalServers} MCP servers are mediated through Mastyf Shield.`,
+              });
+              return;
+            }
+            const confirm = dialog.showMessageBoxSync({
+              type: 'question',
+              buttons: ['Protect Now', 'Cancel'],
+              defaultId: 0,
+              cancelId: 1,
+              title: 'Protect Cursor',
+              message: `Mediate ${cursor.unprotectedServers} unmediated servers in Cursor?`,
+              detail: `This creates a safe backup at ${cursor.configPath}.bak.<timestamp> and routes tool calls through Mastyf Gateway.`,
+            });
+            if (confirm === 0) {
+              const res = agentDiscovery.protectAgent('cursor', { repoRoot: REPO_ROOT });
+              dialog.showMessageBox({
+                type: res.ok ? 'info' : 'error',
+                title: 'Cursor Protection',
+                message: res.ok ? 'Cursor Protected Successfully' : 'Protection Failed',
+                detail: res.message || res.error,
+              });
+            }
+          },
+        },
+        {
+          label: '1-Click Protect All Discovered Agents',
+          click: async () => {
+            const res = agentDiscovery.protectAllAgents({ repoRoot: REPO_ROOT });
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'Batch Agent Protection',
+              message: `Protected ${res.totalNewlyProtected} servers across all clients (${res.totalAlreadyProtected} already protected).`,
+            });
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Revert Claude Desktop...',
+          click: async () => {
+            const confirm = dialog.showMessageBoxSync({
+              type: 'warning',
+              buttons: ['Revert to Direct Execution', 'Cancel'],
+              defaultId: 1,
+              cancelId: 1,
+              title: 'Revert Claude Desktop',
+              message: 'Remove Mastyf Shield mediation from Claude Desktop?',
+              detail: 'This unwraps commands back to their direct executable state.',
+            });
+            if (confirm === 0) {
+              const res = agentDiscovery.unprotectAgent('claude');
+              dialog.showMessageBox({
+                type: res.ok ? 'info' : 'error',
+                title: 'Claude Desktop Revert',
+                message: res.ok ? 'Claude Desktop Reverted' : 'Revert Failed',
+                detail: res.message || res.error,
+              });
+            }
+          },
+        },
+        {
+          label: 'Revert Cursor...',
+          click: async () => {
+            const confirm = dialog.showMessageBoxSync({
+              type: 'warning',
+              buttons: ['Revert to Direct Execution', 'Cancel'],
+              defaultId: 1,
+              cancelId: 1,
+              title: 'Revert Cursor',
+              message: 'Remove Mastyf Shield mediation from Cursor?',
+              detail: 'This unwraps commands back to their direct executable state.',
+            });
+            if (confirm === 0) {
+              const res = agentDiscovery.unprotectAgent('cursor');
+              dialog.showMessageBox({
+                type: res.ok ? 'info' : 'error',
+                title: 'Cursor Revert',
+                message: res.ok ? 'Cursor Reverted' : 'Revert Failed',
+                detail: res.message || res.error,
+              });
+            }
+          },
+        },
+      ],
+    },
+    {
       label: 'Runtime',
       submenu: [
         {
@@ -1201,6 +1368,18 @@ function registerIpc() {
     await shell.openExternal(allowed);
     return { ok: true };
   });
+  ipcMain.handle('shield:discover-agents', async () =>
+    agentDiscovery.discoverAllAgents({ repoRoot: REPO_ROOT }),
+  );
+  ipcMain.handle('shield:protect-agent', async (_evt, clientId, opts) =>
+    agentDiscovery.protectAgent(clientId, { repoRoot: REPO_ROOT, ...(opts || {}) }),
+  );
+  ipcMain.handle('shield:unprotect-agent', async (_evt, clientId, opts) =>
+    agentDiscovery.unprotectAgent(clientId, { repoRoot: REPO_ROOT, ...(opts || {}) }),
+  );
+  ipcMain.handle('shield:protect-all-agents', async (_evt, opts) =>
+    agentDiscovery.protectAllAgents({ repoRoot: REPO_ROOT, ...(opts || {}) }),
+  );
 }
 
 app.whenReady().then(async () => {

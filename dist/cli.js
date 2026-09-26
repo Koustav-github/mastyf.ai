@@ -509,6 +509,54 @@ program
         }));
     });
 });
+const boundaryCmd = program
+    .command('boundary')
+    .description('Complete-Mediation Qualification (CMQ) and execution boundary assurance');
+boundaryCmd
+    .command('inspect')
+    .description('Inspect deployment topology, credentials, listening sockets, and sandbox boundaries')
+    .option('-m, --manifest <path>', 'Boundary manifest path (default: boundary.yaml)')
+    .action(async (opts) => {
+    const { handleBoundaryInspect } = await import('./boundary/cli-commands.js');
+    await handleBoundaryInspect(opts);
+});
+boundaryCmd
+    .command('test')
+    .description('Run deliberate boundary-escape attempts against isolated harmless canaries')
+    .option('-m, --manifest <path>', 'Boundary manifest path (default: boundary.yaml)')
+    .option('--canary-id <id>', 'Optional canary target identifier')
+    .action(async (opts) => {
+    const { handleBoundaryTest } = await import('./boundary/cli-commands.js');
+    await handleBoundaryTest(opts);
+});
+boundaryCmd
+    .command('qualify')
+    .description('Execute full Complete-Mediation Qualification and output signed attestation')
+    .option('-m, --manifest <path>', 'Boundary manifest path (default: boundary.yaml)')
+    .option('-o, --output <path>', 'Write attestation JSON (default: cmq-attestation.json)')
+    .option('--json', 'Output raw machine-readable JSON to stdout')
+    .action(async (opts) => {
+    const { handleBoundaryQualify } = await import('./boundary/cli-commands.js');
+    await handleBoundaryQualify(opts);
+});
+boundaryCmd
+    .command('report')
+    .description('Format and inspect an existing CMQ attestation certificate')
+    .option('-c, --cert <path>', 'Attestation certificate path (default: cmq-attestation.json)')
+    .action(async (opts) => {
+    const { handleBoundaryReport } = await import('./boundary/cli-commands.js');
+    await handleBoundaryReport(opts);
+});
+boundaryCmd
+    .command('template')
+    .description('Generate physical network isolation templates (Docker / Kubernetes)')
+    .option('-m, --manifest <path>', 'Boundary manifest path (default: boundary.yaml)')
+    .option('-t, --type <type>', 'Template type: docker, k8s, or all (default: all)')
+    .option('-o, --output-dir <dir>', 'Output directory (default: current directory)')
+    .action(async (opts) => {
+    const { handleBoundaryTemplate } = await import('./boundary/cli-commands.js');
+    await handleBoundaryTemplate(opts);
+});
 const fleetCmd = program.command('fleet').description('Fleet-wide observability across replicas');
 fleetCmd
     .command('status')

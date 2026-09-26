@@ -1,6 +1,6 @@
 {
   "name": "mastyf-shield",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "author": {
     "name": "Mastyf AI",
@@ -36,6 +36,7 @@
     "files": [
       "main.cjs",
       "preload.cjs",
+      "agent-auto-discovery.cjs",
       "resolve-appliance-homes.cjs",
       "resolve-appliance-ports.cjs",
       "resolve-stack.cjs",

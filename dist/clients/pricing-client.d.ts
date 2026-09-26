@@ -18,7 +18,7 @@ export declare class PricingClient {
     /** Best-effort live refresh via signed remote URL or litellm. */
     refreshLivePricing(): Promise<void>;
     /**
-     * Get live pricing for a model via litellm.
+     * Get pricing for a model (static table first, then cached, then litellm fallback).
      */
     getModelPricing(model: string): Promise<{
         input: number;

@@ -130,23 +130,23 @@ export class PricingClient {
         this.liveModels = fetched;
     }
     /**
-     * Get live pricing for a model via litellm.
+     * Get pricing for a model (static table first, then cached, then litellm fallback).
      */
     async getModelPricing(model) {
+        const staticPrice = this.getPricingForModel(model);
+        if (staticPrice)
+            return { ...staticPrice, isLive: false };
         // Check cache
         const cached = pricingCache.get(model);
         if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
             return { input: cached.input, output: cached.output, isLive: true };
         }
-        // Try litellm for live pricing
+        // Try litellm for live pricing only if not in static table
         const livePrice = await this.fetchLivePricing(model);
         if (livePrice) {
             pricingCache.set(model, { input: livePrice.input, output: livePrice.output, fetchedAt: Date.now() });
             return { input: livePrice.input, output: livePrice.output, isLive: true };
         }
-        const staticPrice = STATIC_PRICING[model];
-        if (staticPrice)
-            return { ...staticPrice, isLive: false };
         return undefined;
     }
     /**
