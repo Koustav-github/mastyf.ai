@@ -1,0 +1,5 @@
+name: mastyf-agent-gateway
+protocols:
+  - MCP
+googleManaged:
+  governedAccessPath: AGENT_TO_ANYWHERE

@@ -1,0 +1,30 @@
+# Agent Gateway authorization extension -> Mastyf content authorizer.
+#
+# Schema: https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/gateways/delegate-authorization#delegate-authorization-to-custom-authorization-extensions
+#
+# Import (note the beta track -- the policy import below is NOT beta):
+#   gcloud beta service-extensions authz-extensions import mastyf-agw \
+#     --source=deploy/agent-gateway-authz-extension.yaml --location=LOCATION
+#
+# Requires networkservices.agentGateways.use on the gateway resource.
+name: mastyf-agw
+
+# FQDN ONLY. An IP literal, short name, or URL with a scheme/path is rejected.
+#
+# Google connects over HTTP/2 + TLS on port 443 and does NOT validate the server
+# certificate. That is why this must be an FQDN you control inside the VPC with
+# DNS peering to the gateway project -- an unvalidated public endpoint is
+# trivially interceptable by anyone on the path. Prefer private ingress or a
+# VPC-scoped FQDN over a public run.app URL.
+service: mastyf-agent-gateway-authz-gwgjarmhoa-uc.a.run.app
+
+# Fail closed. If this authorizer is slow, unhealthy, or unreachable, the gateway
+# denies the call rather than admitting it uninspected. Do not flip this to true
+# to "fix" a timeout -- fix the authorizer.
+failOpen: false
+
+# Gateway-side ceiling for the gRPC call to the extension. MUST exceed
+# MASTYF_AGENT_GATEWAY_DECISION_TIMEOUT_MS, otherwise the gateway gives up before
+# this service emits its own decision and the two timeouts race.
+# See "Keep the extension timeout above the decision timeout" in the README.
+timeout: 10s

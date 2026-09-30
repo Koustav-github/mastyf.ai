@@ -29,6 +29,9 @@
   "scripts": {
     "build": "pnpm --filter @mastyf_ai/plugin-sdk run build && pnpm --filter @mastyf_ai/core run build && pnpm --filter @mastyf_ai/mcp-server run build && tsc --project tsconfig.json && mkdir -p dist/database/migrations dist/policy dist/scripts/redis && cp src/database/migrations/*.sql dist/database/migrations/ && cp src/policy/regex-eval-worker.mjs dist/policy/ && cp scripts/redis/*.lua dist/scripts/redis/ && turbo run build",
     "build:mastyf-ai": "pnpm --filter @mastyf_ai/plugin-sdk run build && pnpm --filter @mastyf_ai/core run build && pnpm --filter @mastyf_ai/mcp-server run build && tsc --project tsconfig.json && cp src/policy/regex-eval-worker.mjs dist/policy/",
+    "start:agent-gateway": "node dist/agent-gateway/index.js",
+    "test:agent-gateway": "vitest run tests/agent-gateway/ --fileParallelism=false",
+    "verify:agent-gateway:cloud": "tsx scripts/send-mcp-ext-proc.ts --host mastyf-agent-gateway-authz-gwgjarmhoa-uc.a.run.app --port 443 --tls",
     "pretest": "node scripts/ensure-workspace-built.mjs",
     "dev": "node scripts/dev.mjs mastyf-ai-configs/testbed-memory.json",
     "dev:thinking": "node scripts/dev.mjs mastyf-ai-configs/testbed-thinking.json",
@@ -62,6 +65,9 @@
     "autopilot:start": "node dist/cli.js autopilot start",
     "autopilot:status": "node dist/cli.js autopilot status",
     "eval": "tsx corpus/run-eval.ts",
+    "cmq:conformance": "node cmq-verification-kit/run-conformance.mjs",
+    "cmq:verify": "node cmq-verification-kit/verifier/standalone-verifier.mjs",
+    "cmq:generate-kit": "tsx scripts/generate-cmq-verification-kit.ts",
     "harness:export": "tsx adversarial-harness/scripts/export-harness-rules.ts",
     "harness:attacks": "node adversarial-harness/scripts/generate-custom-attacks.mjs",
     "harness:python": "PYTHONPATH=adversarial-harness/python python3 adversarial-harness/python/run_comprehensive_eval.py",
@@ -162,11 +168,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mastyf-ai/mastyf-ai.git"
+    "url": "git+https://github.com/mastyf-ai/mastyf.ai.git"
   },
-  "bugs": "https://github.com/mastyf-ai/mastyf-ai/issues",
+  "bugs": "https://github.com/mastyf-ai/mastyf.ai/issues",
   "homepage": "https://www.npmjs.com/package/@mastyf_ai/server",
-  "mcpName": "io.github.mastyf-ai/mastyf-ai",
+  "mcpName": "io.github.mastyf-ai/mastyf.ai",
   "publishConfig": {
     "access": "public"
   },
@@ -195,6 +201,8 @@
     "cost-tracking"
   ],
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1",
     "@mastyf_ai/core": "workspace:^4.1.7",
     "@mastyf_ai/mcp-server": "workspace:^4.1.7",
     "@mastyf_ai/plugin-sdk": "workspace:^4.1.7",

@@ -1,0 +1,60 @@
+# Agent Gateway authorization policy -> Mastyf content authorizer.
+#
+# Schema: https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/gateways/delegate-authorization#delegate-authorization-to-custom-authorization-extensions
+#
+# Import (NOT beta):
+#   gcloud network-security authz-policies import mastyf-agw \
+#     --source=deploy/agent-gateway-authz-policy.yaml --location=LOCATION
+#
+# Prerequisite: Model Armor must NOT be enabled on the same gateway. Per Google's
+# limitations, the ingress path allows one CONTENT_AUTHZ policy and the supported
+# CONTENT_AUTHZ providers are Model Armor or the Semantic Governance policy
+# engine -- not both.
+name: mastyf-agw
+
+target:
+  resources:
+  - "projects/mastyf/locations/us-central1/agentGateways/mastyf-agent-gateway"
+
+
+# CONTENT_AUTHZ = the extension sees request AND response payloads (headers,
+# bodies, trailers). This is what lets a policy verdict depend on the tool name
+# and its arguments rather than on headers alone.
+#
+# Use an AGENT_TO_ANYWHERE (egress) gateway. Google's limitations reserve ingress
+# for a single CONTENT_AUTHZ policy and state that other service-extension types
+# are not supported for ingress, so egress is the mode that supports this shape.
+policyProfile: CONTENT_AUTHZ
+
+# CUSTOM = delegate the verdict to the extension, rather than encoding it in CEL.
+action: CUSTOM
+
+customProvider:
+  authzExtension:
+    resources:
+    - "projects/mastyf/locations/us-central1/authzExtensions/mastyf-agw"
+
+# Scope which traffic reaches the authorizer.
+#
+# Do NOT broaden this to a bare `paths: [{prefix: "/"}]` match. That also forwards
+# MCP base-protocol traffic (initialize, notifications/initialized, ping,
+# completion) and telemetry. This service's extractor is built for `tools/call`
+# and returns `unrecognised-payload` (a deny) for anything else, so a broad match
+# denies the handshake and no MCP session can be established at all.
+#
+# Only `tools/call` is forwarded, so base-protocol RPCs bypass the extension
+# entirely and the session negotiates normally. Note MATCH_BASE_PROTOCOL_METHODS
+# is the setting Google's own ALLOW examples use to KEEP those RPCs working; here
+# we want the inverse -- excluded from evaluation -- so it is deliberately absent.
+httpRules:
+  - to:
+      operations:
+        - mcp:
+            methods:
+              - name: "tools/call"
+    when: >
+      request.headers['content-type'] == 'application/json'
+
+# NOTE: egress gateways allow at most 4 custom authorization policies per
+# gateway, and when several policies share a profile their execution order is
+# NOT guaranteed. Keep this the only CONTENT_AUTHZ policy on the gateway.

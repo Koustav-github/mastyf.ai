@@ -1,0 +1,14 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', 'us-central1-docker.pkg.dev/mastyf/mastyf/agent-gateway:v4.1.14',
+    '-t', 'us-central1-docker.pkg.dev/mastyf/mastyf/agent-gateway:latest',
+    '-f', 'deploy/agent-gateway.Dockerfile',
+    '.'
+  ]
+images:
+- 'us-central1-docker.pkg.dev/mastyf/mastyf/agent-gateway:v4.1.14'
+- 'us-central1-docker.pkg.dev/mastyf/mastyf/agent-gateway:latest'
+options:
+  machineType: 'E2_HIGHCPU_8'
