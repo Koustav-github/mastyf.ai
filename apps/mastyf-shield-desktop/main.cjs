@@ -67,19 +67,32 @@ function refreshRuntimeEndpoints() {
     UI_URL =
       process.env.MASTYF_SHIELD_UI_URL ||
       process.env.MASTYF_APPLIANCE_URL ||
-      'http://localhost:3000';
+      `http://127.0.0.1:${BFF_PORT}`;
   }
 }
 refreshRuntimeEndpoints();
 
+function localDashboardApiKey() {
+  try {
+    const keyPath = join(applianceHomes().mastyfHome, 'dashboard_api_key');
+    if (!existsSync(keyPath)) return '';
+    const key = readFileSync(keyPath, 'utf8').trim();
+    return key.length >= 16 ? key : '';
+  } catch {
+    return '';
+  }
+}
+
 /** Deep-link targets — matches MastyfApplianceShell URLSearchParams (mode/tab). */
 function deepLinks() {
   const base = UI_URL.replace(/\/$/, '');
+  const key = localDashboardApiKey();
+  const qs = key ? `&apiKey=${encodeURIComponent(key)}` : '';
   return {
-    shield: process.env.MASTYF_SHIELD_DEEP_SHIELD || `${base}/?mode=shield`,
+    shield: process.env.MASTYF_SHIELD_DEEP_SHIELD || `${base}/?mode=shield${qs}`,
     access:
-      process.env.MASTYF_SHIELD_DEEP_ACCESS || `${base}/?mode=security-center&tab=access`,
-    ask: process.env.MASTYF_SHIELD_DEEP_ASK || `${base}/?mode=security-center&tab=ask`,
+      process.env.MASTYF_SHIELD_DEEP_ACCESS || `${base}/?mode=security-center&tab=access${qs}`,
+    ask: process.env.MASTYF_SHIELD_DEEP_ASK || `${base}/?mode=security-center&tab=ask${qs}`,
   };
 }
 
@@ -195,8 +208,8 @@ function childStackEnv() {
     MASTYF_AI_DEPLOY_DIR: layout.deployRoot,
     PYTHONPATH: layout.gatewaySrc,
     MASTYF_AI_PACKAGED: app.isPackaged ? 'true' : '',
-    MASTYF_AI_FLEET_MODE: process.env.MASTYF_AI_FLEET_MODE || (app.isPackaged ? 'false' : 'true'),
-    MASTYF_AI_FLEET_CHILD: process.env.MASTYF_AI_FLEET_CHILD || (app.isPackaged ? 'true' : ''),
+    MASTYF_AI_FLEET_MODE: process.env.MASTYF_AI_FLEET_MODE || 'false',
+    MASTYF_AI_FLEET_CHILD: process.env.MASTYF_AI_FLEET_CHILD || 'true',
   };
   if (app.isPackaged) {
     env.MASTYF_AI_CI_BYPASS_LICENSE = '';
@@ -424,7 +437,12 @@ function localDashboardAuthHeaders() {
 }
 
 function installLocalDashboardAuth() {
-  const urls = [`http://127.0.0.1:${BFF_PORT}/*`, `http://localhost:${BFF_PORT}/*`];
+  const urls = [
+    `http://127.0.0.1:${BFF_PORT}/*`,
+    `http://localhost:${BFF_PORT}/*`,
+    `http://127.0.0.1:${BFF_PORT}/`,
+    `http://localhost:${BFF_PORT}/`,
+  ];
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls }, (details, cb) => {
     cb({ requestHeaders: { ...details.requestHeaders, ...localDashboardAuthHeaders() } });
   });

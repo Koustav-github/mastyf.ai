@@ -2,6 +2,12 @@
  * Persistence for industry-standard features (migration 012 tables).
  */
 import type { IDatabase } from './database-interface.js';
+import {
+  getIndustryHotState,
+  HOT_TABLE_KEYS,
+  type HotRow,
+  type HotTable,
+} from './industry-hot-state.js';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -135,11 +141,58 @@ export interface CertificationRow {
   tenantId: string;
 }
 
+/** The enforcement-path tables the hot-state cache serves; see industry-hot-state.ts. */
+const HOT_TABLES = new Set<string>(Object.keys(HOT_TABLE_KEYS));
+
+/** Extract the target table from a statement so the error names it. */
+function tableFromSql(sql: string): string {
+  const m = /(?:FROM|INTO|UPDATE)\s+([A-Za-z_][A-Za-z0-9_]*)/i.exec(sql);
+  return m?.[1] ?? 'unknown';
+}
+
+/**
+ * Thrown when the database cannot serve IndustryStandardStore's synchronous
+ * better-sqlite3 statements. This is an architecture error, not an empty
+ * dataset, and must never be swallowed into an empty result.
+ */
+export class IndustryStoreUnsupportedError extends Error {
+  readonly table: string;
+  constructor(
+    table: string,
+    db: unknown,
+  ) {
+    super(
+      `IndustryStandardStore cannot read or write table "${table}" through ${db?.constructor?.name ?? 'this database'}: ` +
+        'it has no synchronous prepare() API. Returning an empty result here would silently ' +
+        'disable enforcement (certification reads look "uncertified"; threat-intel reads empty the ' +
+        'guard pattern set), so this is thrown instead. ' +
+        (HOT_TABLES.has(table)
+          ? 'This table is enforcement-path state: attach the industry hot-state cache ' +
+            '(IndustryHotState.attach) so it is served from memory.'
+          : 'This table has no async port yet: use the control-plane API, or run with SQLite.'),
+    );
+    this.name = 'IndustryStoreUnsupportedError';
+    this.table = table;
+  }
+}
+
 export class IndustryStandardStore {
   constructor(private readonly db: IDatabase) {
     applyIndustryStandardMigration(db);
   }
 
+  /**
+   * Returns a prepared statement, or null when the database CAN prepare but the
+   * table does not exist (migrations may not have run yet -- tolerated).
+   *
+   * Throws when the database cannot prepare statements AT ALL, which is the
+   * PostgreSQL shape: an async pg Pool with no better-sqlite3 prepare().
+   *
+   * This distinction is the whole point. Returning null in both cases made
+   * every read look like "no data" and every write a no-op, so a Postgres
+   * deployment looked healthy while storing nothing -- and a failed threat-intel
+   * read silently emptied the guard's pattern set, which fails OPEN.
+   */
   private prep(sql: string): {
     run: (...args: unknown[]) => unknown;
     get: (...args: unknown[]) => unknown;
@@ -152,10 +205,50 @@ export class IndustryStandardStore {
         all: (...args: unknown[]) => unknown[];
       };
     }).prepare;
-    return fn ? fn.call(this.db, sql) : null;
+    if (typeof fn !== 'function') {
+      throw new IndustryStoreUnsupportedError(tableFromSql(sql), this.db);
+    }
+    return fn.call(this.db, sql);
+  }
+
+  /**
+   * True when the hot-state cache owns this data (i.e. a network backend is
+   * attached). When false, every method below uses the original synchronous
+   * SQLite path, unchanged.
+   */
+  private hotActive(): boolean {
+    return getIndustryHotState().enabled;
+  }
+
+  /**
+   * Route a write to the hot-state cache when one is attached.
+   * Returns true when the write was consumed (caller must not fall through).
+   */
+  private hotWrite(table: Parameters<ReturnType<typeof getIndustryHotState>['enqueue']>[0], row: HotRow): boolean {
+    return getIndustryHotState().enqueue(table, row);
   }
 
   saveCertification(row: CertificationRow): void {
+    // Column names must be snake_case: the cache keys rows by column name and
+    // the Postgres upsert builds its INSERT from Object.keys(row).
+    if (
+      this.hotWrite('mcp_certifications', {
+        id: row.id,
+        server_name: row.serverName,
+        package_name: row.packageName,
+        version: row.version,
+        level: row.level,
+        score: row.score,
+        certified: row.certified ? 1 : 0,
+        attestation_jws: row.attestationJws ?? null,
+        checks_json: row.checksJson,
+        issued_at: row.issuedAt,
+        expires_at: row.expiresAt,
+        tenant_id: row.tenantId,
+      })
+    ) {
+      return;
+    }
     const exec = this.prep(
       `INSERT OR REPLACE INTO mcp_certifications
        (id, server_name, package_name, version, level, score, certified, attestation_jws, checks_json, issued_at, expires_at, tenant_id)
@@ -169,9 +262,16 @@ export class IndustryStandardStore {
   }
 
   getCertification(serverName: string): CertificationRow | null {
+    if (this.hotActive()) {
+      return this.mapCertification(getIndustryHotState().getCertification(serverName));
+    }
     const get = this.prep('SELECT * FROM mcp_certifications WHERE server_name = ? ORDER BY issued_at DESC LIMIT 1');
     if (!get) return null;
     const row = get.get(serverName) as Record<string, unknown> | undefined;
+    return this.mapCertification(row);
+  }
+
+  private mapCertification(row: Record<string, unknown> | null | undefined): CertificationRow | null {
     if (!row) return null;
     return {
       id: String(row.id),
@@ -180,7 +280,9 @@ export class IndustryStandardStore {
       version: String(row.version),
       level: String(row.level),
       score: Number(row.score),
-      certified: Boolean(row.certified),
+      // SQLite stores 0/1; PostgreSQL round-trips booleans if a future DDL uses
+      // one. Accept both rather than treating every row as certified.
+      certified: row.certified === true || Number(row.certified) === 1,
       attestationJws: row.attestation_jws ? String(row.attestation_jws) : undefined,
       checksJson: String(row.checks_json ?? '[]'),
       issuedAt: String(row.issued_at),
@@ -190,6 +292,18 @@ export class IndustryStandardStore {
   }
 
   saveMtxSignature(hash: string, mtxJson: string, verified: boolean, tenantId = 'default'): void {
+    if (
+      this.hotWrite('mtx_signatures', {
+        signature_hash: hash,
+        mtx_json: mtxJson,
+        report_count: 1,
+        verified: verified ? 1 : 0,
+        synced_at: new Date().toISOString(),
+        tenant_id: tenantId,
+      })
+    ) {
+      return;
+    }
     const stmt = this.prep(
       `INSERT INTO mtx_signatures (signature_hash, mtx_json, report_count, verified, synced_at, tenant_id)
        VALUES (?, ?, 1, ?, datetime('now'), ?)
@@ -227,6 +341,20 @@ export class IndustryStandardStore {
   }
 
   upsertAgentReputation(agentId: string, score: number, tier: string, trend: string, eventsJson: string, tenantId = 'default'): void {
+    if (
+      this.hotWrite('agent_reputation', {
+        agent_id: agentId,
+        score,
+        tier,
+        trend,
+        events_json: eventsJson,
+        tenant_id: tenantId,
+        // SQLite stamped datetime('now') on every upsert; keep that behaviour.
+        updated_at: new Date().toISOString(),
+      })
+    ) {
+      return;
+    }
     const stmt = this.prep(
       `INSERT INTO agent_reputation (agent_id, score, tier, trend, events_json, tenant_id, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
@@ -238,11 +366,11 @@ export class IndustryStandardStore {
   }
 
   getAgentReputation(agentId: string): { score: number; tier: string; trend: string } | null {
-    const get = this.prep('SELECT score, tier, trend FROM agent_reputation WHERE agent_id = ?');
-    if (!get) return null;
-    const row = get.get(agentId) as
-      | Record<string, unknown>
-      | undefined;
+    const row = this.hotActive()
+      ? getIndustryHotState().getAgentReputation(agentId)
+      : (this.prep('SELECT score, tier, trend FROM agent_reputation WHERE agent_id = ?')?.get(agentId) as
+          | Record<string, unknown>
+          | undefined);
     if (!row) return null;
     return { score: Number(row.score), tier: String(row.tier), trend: String(row.trend) };
   }
@@ -308,6 +436,18 @@ export class IndustryStandardStore {
     expiresAt: string;
     tenantId?: string;
   }): void {
+    if (
+      this.hotWrite('intent_bindings', {
+        session_id: row.sessionId,
+        agent_id: row.agentId ?? null,
+        declared_intent: row.declaredIntent,
+        allowed_tools_json: row.allowedToolsJson,
+        expires_at: row.expiresAt,
+        tenant_id: row.tenantId ?? 'default',
+      })
+    ) {
+      return;
+    }
     const stmt = this.prep(
       `INSERT OR REPLACE INTO intent_bindings
        (session_id, agent_id, declared_intent, allowed_tools_json, expires_at, tenant_id)
@@ -329,11 +469,11 @@ export class IndustryStandardStore {
     allowedTools: string[];
     expiresAt: string;
   } | null {
-    const get = this.prep(
-      'SELECT declared_intent, allowed_tools_json, expires_at FROM intent_bindings WHERE session_id = ?',
-    );
-    if (!get) return null;
-    const row = get.get(sessionId) as Record<string, unknown> | undefined;
+    const row = this.hotActive()
+      ? getIndustryHotState().getIntentBinding(sessionId)
+      : (this.prep(
+          'SELECT declared_intent, allowed_tools_json, expires_at FROM intent_bindings WHERE session_id = ?',
+        )?.get(sessionId) as Record<string, unknown> | undefined);
     if (!row) return null;
     let allowedTools: string[] = [];
     try {
@@ -349,6 +489,19 @@ export class IndustryStandardStore {
   }
 
   upsertSandboxTier(scopeType: string, scopeId: string, tier: string, rlStateJson?: string, tenantId = 'default'): void {
+    if (
+      this.hotWrite('sandbox_tier_state', {
+        id: `${scopeType}:${scopeId}`,
+        scope_type: scopeType,
+        scope_id: scopeId,
+        tier,
+        rl_state_json: rlStateJson ?? null,
+        tenant_id: tenantId,
+        updated_at: new Date().toISOString(),
+      })
+    ) {
+      return;
+    }
     const stmt = this.prep(
       `INSERT INTO sandbox_tier_state (id, scope_type, scope_id, tier, rl_state_json, tenant_id, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
@@ -360,13 +513,27 @@ export class IndustryStandardStore {
   }
 
   getSandboxTier(scopeType: string, scopeId: string): string | null {
-    const get = this.prep('SELECT tier FROM sandbox_tier_state WHERE scope_type = ? AND scope_id = ?');
-    if (!get) return null;
-    const row = get.get(scopeType, scopeId) as Record<string, unknown> | undefined;
+    const row = this.hotActive()
+      ? getIndustryHotState().getSandboxTier(scopeType, scopeId)
+      : (this.prep('SELECT tier FROM sandbox_tier_state WHERE scope_type = ? AND scope_id = ?')?.get(
+          scopeType,
+          scopeId,
+        ) as Record<string, unknown> | undefined);
     return row ? String(row.tier) : null;
   }
 
   listSandboxTiers(): Array<{ scopeType: string; scopeId: string; tier: string }> {
+    if (this.hotActive()) {
+      // Without this the dashboard reports zero sandbox tiers under Postgres
+      // while the enforcement path is actively enforcing them.
+      return getIndustryHotState()
+        .rows('sandbox_tier_state')
+        .map((r) => ({
+          scopeType: String(r['scope_type'] ?? ''),
+          scopeId: String(r['scope_id'] ?? ''),
+          tier: String(r['tier'] ?? ''),
+        }));
+    }
     const stmt = this.prep('SELECT scope_type, scope_id, tier FROM sandbox_tier_state');
     if (!stmt) return [];
     const rows = stmt.all() || [];
@@ -441,6 +608,14 @@ export class IndustryStandardStore {
   }
 
   listCertifications(tenantId = 'default', limit = 100): CertificationRow[] {
+    if (this.hotActive()) {
+      return getIndustryHotState()
+        .rows('mcp_certifications')
+        .filter((r) => String(r['tenant_id'] ?? 'default') === tenantId)
+        .sort((a, b) => String(b['issued_at'] ?? '').localeCompare(String(a['issued_at'] ?? '')))
+        .slice(0, limit)
+        .map((row) => this.rowToCertification(row));
+    }
     const stmt = this.prep(
       `SELECT * FROM mcp_certifications WHERE tenant_id = ? ORDER BY issued_at DESC LIMIT ?`,
     );
@@ -494,6 +669,18 @@ export class IndustryStandardStore {
   }
 
   listMtxPatternHashes(tenantId = 'default', limit = 2000): string[] {
+    if (this.hotActive()) {
+      // This feeds src/policy/threat-intel-guard.ts. Returning [] here does not
+      // fail closed -- it silently removes every MTX community signature from
+      // the guard's pattern set, so the guard just stops matching. That is a
+      // fail-OPEN regression, so the cache must serve it.
+      return getIndustryHotState()
+        .rows('mtx_signatures')
+        .filter((r) => String(r['tenant_id'] ?? 'default') === tenantId)
+        .slice(0, limit)
+        .map((r) => String(r['signature_hash'] ?? ''))
+        .filter(Boolean);
+    }
     const stmt = this.prep(
       `SELECT signature_hash FROM mtx_signatures WHERE tenant_id = ? ORDER BY report_count DESC LIMIT ?`,
     );
@@ -588,9 +775,38 @@ export class IndustryStandardStore {
     chainEventCount: number;
     provenanceCount?: number;
     anomalyCount?: number;
+    /**
+     * True when some counts below are unavailable rather than genuinely zero.
+     * Under PostgreSQL only the enforcement hot tables are readable; the rest
+     * of IndustryStandardStore has no async port yet.
+     */
+    partial?: boolean;
+    unavailable?: string[];
   } {
     const scalar = (sql: string) => this.prep(sql);
     if (!scalar('SELECT 1')) {
+      // Previously this returned an all-zero status that was indistinguishable
+      // from "you have no certifications" -- the exact failure mode that let
+      // Postgres look healthy while storing nothing.
+      const unsupported = [
+        'mtx_signatures',
+        'benchmark_submissions',
+        'session_chain_events',
+        'config_provenance_events',
+        'behavior_anomaly_events',
+      ];
+      if (this.hotActive()) {
+        return {
+          certificationCount: getIndustryHotState()
+            .rows('mcp_certifications')
+            .filter((r) => String(r['tenant_id'] ?? 'default') === tenantId).length,
+          mtxCount: 0,
+          benchmarkCount: 0,
+          chainEventCount: 0,
+          partial: true,
+          unavailable: unsupported,
+        };
+      }
       return { certificationCount: 0, mtxCount: 0, benchmarkCount: 0, chainEventCount: 0 };
     }
     const cert = scalar(
@@ -612,7 +828,11 @@ export class IndustryStandardStore {
       'SELECT COUNT(*) AS n FROM behavior_anomaly_events WHERE tenant_id = ?',
     )!.get(tenantId) as { n?: number } | undefined;
     return {
-      certificationCount: Number(cert?.n ?? 0),
+      certificationCount: this.hotActive()
+        ? getIndustryHotState()
+            .rows('mcp_certifications')
+            .filter((r) => String(r['tenant_id'] ?? 'default') === tenantId).length
+        : Number(cert?.n ?? 0),
       mtxCount: Number(mtx?.n ?? 0),
       benchmarkCount: Number(bench?.n ?? 0),
       chainEventCount: Number(chain?.n ?? 0),
@@ -736,6 +956,20 @@ export class IndustryStandardStore {
     argShapeHash: string;
     updatedAt: string;
   }, tenantId = 'default'): void {
+    if (
+      this.hotWrite('behavior_fingerprints', {
+        agent_id: fp.agentId,
+        sample_count: fp.sampleCount,
+        avg_inter_call_ms: fp.avgInterCallMs,
+        avg_arg_bytes: fp.avgArgBytes,
+        tool_order_json: JSON.stringify(fp.toolOrder),
+        arg_shape_hash: fp.argShapeHash,
+        tenant_id: tenantId,
+        updated_at: fp.updatedAt,
+      })
+    ) {
+      return;
+    }
     const exec = this.prep(
       `INSERT OR REPLACE INTO behavior_fingerprints
        (agent_id, sample_count, avg_inter_call_ms, avg_arg_bytes, tool_order_json, arg_shape_hash, tenant_id, updated_at)
@@ -758,9 +992,11 @@ export class IndustryStandardStore {
     argShapeHash: string;
     updatedAt: string;
   } | null {
-    const stmt = this.prep('SELECT * FROM behavior_fingerprints WHERE agent_id = ?');
-    if (!stmt) return null;
-    const row = stmt.get(agentId) as Record<string, unknown> | undefined;
+    const row = this.hotActive()
+      ? getIndustryHotState().getBehaviorFingerprint(agentId)
+      : (this.prep('SELECT * FROM behavior_fingerprints WHERE agent_id = ?')?.get(agentId) as
+          | Record<string, unknown>
+          | undefined);
     if (!row) return null;
     return {
       agentId: String(row.agent_id),

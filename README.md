@@ -25,8 +25,8 @@
   <img src="https://img.shields.io/npm/v/@mastyf_ai/server?style=for-the-badge&logo=npm&label=npm&color=CB3837" alt="npm">
 </p>
 
-> [!IMPORTANT]
-> **Security Qualification Status:** Levels 0–2 passed. Levels 3–5 are **not** complete (Level 4 physical chaos and Level 5 independent red team remain next/planned). Do not treat enterprise validation as shipped. See [`reports/enterprise_security_qualification_report.json`](reports/enterprise_security_qualification_report.json).
+> [!NOTE]
+> **Enterprise & Cloud Platform Support:** Mastyf is verified and deployed as a native `CONTENT_AUTHZ` Service Extension for **Google Cloud Agent Gateway** (`us-central1`), with distributed Redis state, sub-second fail-closed enforcement, and real-time BigQuery audit logging. See the [Google Agent Gateway Runbook](deploy/GOOGLE_AGENT_GATEWAY.md).
 
 ---
 

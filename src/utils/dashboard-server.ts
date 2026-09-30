@@ -1028,7 +1028,13 @@ export async function startDashboardServer(
           if (csrfToken) headers['Set-Cookie'] = auth.csrfSetCookieHeader(csrfToken);
           res.writeHead(200, headers);
           res.end(auth.getLoginPageHtml(undefined, csrfToken));
-        } else { res.writeHead(302, { 'Location': '/' }); res.end(); }
+        } else {
+          res.writeHead(200, {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          });
+          res.end(loadDashboardHtml());
+        }
         return;
       }
 
@@ -1116,6 +1122,19 @@ export async function startDashboardServer(
         return;
       }
 
+      // SPA HTML shell is served on root so client-side React / LoginGate can execute
+      if (url === '/' || url === '/dashboard.html') {
+        setCors();
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        });
+        res.end(loadDashboardHtml());
+        return;
+      }
+
       if (url.startsWith('/api/') && !assertLicensedApi(url, res, setCors)) {
         return;
       }
@@ -1128,21 +1147,19 @@ export async function startDashboardServer(
       if (!authResult.authenticated) {
         setCors();
         if (req.headers['accept']?.includes('text/html')) {
-          res.writeHead(302, { 'Location': '/login' }); res.end();
-        } else { writeJson(res, 401, { error: 'Authentication required', reason: authResult.reason }); }
-        return;
-      }
-
-      // SPA assets also need no-cache to avoid stale builds
-      if (url === '/' || url === '/dashboard.html') {
-        setCors();
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        });
-        res.end(loadDashboardHtml());
+          if (auth.hasJwtSessionAuth()) {
+            res.writeHead(302, { 'Location': '/login' });
+            res.end();
+            return;
+          }
+          res.writeHead(200, {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          });
+          res.end(loadDashboardHtml());
+          return;
+        }
+        writeJson(res, 401, { error: 'Authentication required', reason: authResult.reason });
         return;
       }
 

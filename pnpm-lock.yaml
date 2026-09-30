@@ -19,6 +19,12 @@ importers:
 
   .:
     dependencies:
+      '@grpc/grpc-js':
+        specifier: '>=1.14.4'
+        version: 1.14.4
+      '@grpc/proto-loader':
+        specifier: ^0.8.1
+        version: 0.8.1
       '@mastyf_ai/core':
         specifier: workspace:^4.1.7
         version: link:packages/core
