@@ -1,0 +1,179 @@
+# Cloud Run service for the Agent Gateway external processing service.
+#
+# This is the deployment half of the CONTENT_AUTHZ setup. The two files it works
+# with are:
+#   deploy/agent-gateway-authz-extension.yaml  -- registers this service
+#   deploy/agent-gateway-authz-policy.yaml     -- routes tools/call to it
+#
+# The extension requires a FQDN on port 443 speaking HTTP/2 + TLS, and Google
+# does NOT validate the server certificate. A public `run.app` hostname therefore
+# exposes the authorizer to interception by anyone on the path. Either front this
+# with a private ingress / PSC endpoint, or terminate TLS on an internal load
+# balancer whose DNS name is peered into the Agent Gateway VPC.
+#
+# PLACEHOLDERS to replace before applying:
+#   PROJECT_ID, REGION, IMAGE, REDIS_HOST, REDIS_INSTANCE, POLICY_FILE_BUCKET
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mastyf-agent-gateway-authz
+  namespace: mastyf
+  labels:
+    app.kubernetes.io/name: mastyf-agent-gateway
+    # The gateway resolves this by the FQDN recorded in the AuthzExtension, so
+    # the name here and the extension's `service` field must agree exactly.
+    mastyf.ai/role: authz-extension
+spec:
+  template:
+    metadata:
+      annotations:
+        # Traffic must originate from the Agent Gateway, not the public internet.
+        # With ingress set to internal-and-cloud-load-balancing, the only caller
+        # that can reach this is a peered VPC / internal LB.
+        run.googleapis.com/ingress: internal-and-cloud-load-balancing
+        run.googleapis.com/launch-stage: GA
+        autoscaling.knative.dev/minScale: '1'
+        autoscaling.knative.dev/maxScale: '3'
+    spec:
+      containerConcurrency: 80
+      # Cloud Run speaks h2c to the container; TLS terminates in front.
+      timeoutSeconds: 600
+      serviceAccountName: mastyf-agent-gateway@mastyf.iam.gserviceaccount.com
+      containers:
+        - name: authz
+          image: REGION-docker.pkg.dev/PROJECT_ID/mastyf/agent-gateway:TAG
+          ports:
+            - name: h2c
+              containerPort: 8080
+          env:
+            # ── Fail-closed posture ───────────────────────────────
+            # An unreachable OPA authorizes and a Redis fault falls back
+            # to per-process counters unless this is on.
+            - name: MASTYF_AI_STRICT_MODE
+              value: 'true'
+            # Required because maxScale > 1. Without it, rate limits and
+            # session-flow history are per-replica and strict mode refuses
+            # to start. See the coupling note in agent-gateway.Dockerfile.
+            - name: REPLICA_COUNT
+              value: '3'
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mastyf-redis
+                  key: url
+            # ── Policy ─────────────────────────────────────────────
+            # No MASTYF_AI_POLICY_PATH means the built-in deny-all
+            # fallback, which refuses every call. Mount a real policy.
+            - name: MASTYF_AI_POLICY_PATH
+              value: /app/policy/active-policy.yaml
+            - name: MASTYF_AI_TENANT
+              valueFrom:
+                configMapKeyRef:
+                  name: mastyf-agent-gateway
+                  key: tenant
+            - name: MASTYF_AGENT_GATEWAY_SERVER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: mastyf-agent-gateway
+                  key: serverName
+            # ── Decision budget ───────────────────────────────────
+            # Must stay BELOW the extension's grpc_service.timeout in
+            # agent-gateway-authz-extension.yaml, or the gateway's own
+            # timeout fires first and surfaces as an opaque 5xx instead of
+            # a named denial. Currently 5s vs a 10s extension timeout.
+            - name: MASTYF_AGENT_GATEWAY_DECISION_TIMEOUT_MS
+              value: '5000'
+            # See the MAX_SCANNED_ARGUMENT_BYTES note in decision-core.ts
+            # before raising: the secret scanner is O(n) in argument size
+            # and runs synchronously, so the timeout cannot rescue it.
+            - name: MASTYF_AGENT_GATEWAY_MAX_SCANNED_ARGUMENT_BYTES
+              value: '32768'
+            # ── Capability artifact + drift gate ───────────────
+            # Writes the machine-readable capability report so a deploy can be
+            # audited without booting the authorizer. Compared against the
+            # committed baseline below: any capability that silently loses
+            # `live` refuses to serve instead of shipping. Drop the BASELINE
+            # var to disable the gate (the artifact write is independent).
+            - name: MASTYF_AGENT_GATEWAY_CAPABILITY_REPORT
+              value: /var/mastyf/capabilities.json
+            - name: MASTYF_AGENT_GATEWAY_CAPABILITY_BASELINE
+              # Read from the mounted policy ConfigMap below -- add a
+              # `capabilities.baseline.json` key generated by
+              #   npx vitest run tests/agent-gateway/capability-artifact-gate.test.ts
+              # or by capturing a known-good deployment's artifact. Remove this
+              # var to disable the gate.
+              value: /app/policy/capabilities.baseline.json
+          volumeMounts:
+            - name: policy
+              mountPath: /app/policy
+              readOnly: true
+            # Cloud Run's filesystem is ephemeral and size-limited. Only
+            # non-authoritative state (scan history, cost records) belongs here;
+            # it may vanish on every cold start and per-replica.
+            #
+            # Agentic enforcement state (certification, biometric fingerprints,
+            # intent bindings, reputation, sandbox tiers) MUST NOT live here.
+            # IndustryStandardStore reaches the DB through better-sqlite3's
+            # prepare(); PostgresDatabase exposes an async pg Pool with no
+            # prepare(), so the synchronous enforcement-path reads cannot query
+            # Postgres directly.
+            #
+            # That is now bridged by the industry hot-state cache: with
+            # DB_TYPE=postgres the container hydrates those five tables into
+            # memory at startup, serves the synchronous strategies from memory,
+            # and writes back asynchronously. The hot path stays synchronous --
+            # a decision cannot await a network database.
+            #
+            # Consequences you are accepting by setting DB_TYPE=postgres:
+            #   - Startup FAILS if hydration does not succeed. This is
+            #     deliberate: an empty cache makes every read null, which the
+            #     strategies read as "not certified" and would deny all MCP
+            #     traffic while the gateway still looked healthy.
+            #   - Revocations are visible on the next refresh, not instantly.
+            #     MASTYF_AI_INDUSTRY_REFRESH_MS bounds that window (default 30s).
+            #     MASTYF_AI_INDUSTRY_QUEUE_MAX bounds the write-behind queue.
+            #   - The capability report says `live` only after a successful
+            #     hydration, and drops back to `degraded` if a refresh fails.
+            #
+            # Do NOT set MASTYF_AI_AGENTIC_STATE_DURABLE=true: it only relaxes
+            # the *SQLite* ephemeral-path check and would falsely vouch for
+            # ephemeral agentic state.
+            - name: state
+              mountPath: /var/mastyf
+          resources:
+            limits:
+              cpu: '1'
+              memory: 512Mi
+            requests:
+              cpu: '250m'
+              memory: 256Mi
+      volumes:
+        - name: policy
+          configMap:
+            name: mastyf-agent-gateway-policy
+        - name: state
+          emptyDir: {}
+---
+# Shared state. Required at maxScale > 1 -- see the REPLICA_COUNT note above.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mastyf-redis
+  namespace: mastyf
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+  selector:
+    app.kubernetes.io/name: redis
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mastyf-redis
+  namespace: mastyf
+type: Opaque
+stringData:
+  # PLACEHOLDER. Supply from Secret Manager rather than committing a value.
+  url: redis://REDIS_HOST:6379

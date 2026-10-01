@@ -24,12 +24,45 @@ export interface CertificationRow {
     expiresAt: string;
     tenantId: string;
 }
+/**
+ * Thrown when the database cannot serve IndustryStandardStore's synchronous
+ * better-sqlite3 statements. This is an architecture error, not an empty
+ * dataset, and must never be swallowed into an empty result.
+ */
+export declare class IndustryStoreUnsupportedError extends Error {
+    readonly table: string;
+    constructor(table: string, db: unknown);
+}
 export declare class IndustryStandardStore {
     private readonly db;
     constructor(db: IDatabase);
+    /**
+     * Returns a prepared statement, or null when the database CAN prepare but the
+     * table does not exist (migrations may not have run yet -- tolerated).
+     *
+     * Throws when the database cannot prepare statements AT ALL, which is the
+     * PostgreSQL shape: an async pg Pool with no better-sqlite3 prepare().
+     *
+     * This distinction is the whole point. Returning null in both cases made
+     * every read look like "no data" and every write a no-op, so a Postgres
+     * deployment looked healthy while storing nothing -- and a failed threat-intel
+     * read silently emptied the guard's pattern set, which fails OPEN.
+     */
     private prep;
+    /**
+     * True when the hot-state cache owns this data (i.e. a network backend is
+     * attached). When false, every method below uses the original synchronous
+     * SQLite path, unchanged.
+     */
+    private hotActive;
+    /**
+     * Route a write to the hot-state cache when one is attached.
+     * Returns true when the write was consumed (caller must not fall through).
+     */
+    private hotWrite;
     saveCertification(row: CertificationRow): void;
     getCertification(serverName: string): CertificationRow | null;
+    private mapCertification;
     saveMtxSignature(hash: string, mtxJson: string, verified: boolean, tenantId?: string): void;
     recordChainEvent(event: {
         sessionId: string;
@@ -151,6 +184,13 @@ export declare class IndustryStandardStore {
         chainEventCount: number;
         provenanceCount?: number;
         anomalyCount?: number;
+        /**
+         * True when some counts below are unavailable rather than genuinely zero.
+         * Under PostgreSQL only the enforcement hot tables are readable; the rest
+         * of IndustryStandardStore has no async port yet.
+         */
+        partial?: boolean;
+        unavailable?: string[];
     };
     saveProvenanceEvent(event: {
         eventId: string;
