@@ -197,3 +197,29 @@ export const webhookEventLogs = pgTable('webhook_event_logs', {
   processedAt: timestamp('processed_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
 });
 
+// --- Google Cloud Marketplace Procurement Tables ---
+
+export const gcpMarketplaceAccounts = pgTable('gcp_marketplace_accounts', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').references(() => organizations.id, { onDelete: 'set null' }),
+  billingAccountId: text('billing_account_id'),
+  state: text('state').notNull().default('ACCOUNT_PENDING_APPROVAL'),
+  rawPayload: text('raw_payload'),
+  createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+});
+
+export const gcpMarketplaceEntitlements = pgTable('gcp_marketplace_entitlements', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull(),
+  orgId: text('org_id').references(() => organizations.id, { onDelete: 'set null' }),
+  planId: text('plan_id'),
+  offerId: text('offer_id'),
+  state: text('state').notNull().default('ENTITLEMENT_PENDING_APPROVAL'),
+  usageReportingId: text('usage_reporting_id'),
+  rawPayload: text('raw_payload'),
+  createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+});
+
+
