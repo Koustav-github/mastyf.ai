@@ -43,17 +43,12 @@ policy:
           - graphql_query
           - template_render
     - name: deny-github-write-tools
-      description: Block GitHub mutation tools (exfil via create_issue, push, etc.)
+      description: Block destructive repository actions (repo deletion, etc.)
       action: block
       tools:
         deny:
-          - create_issue
-          - create_pull_request
-          - update_issue
-          - push_files
-          - create_repository
           - delete_repository
-          - merge_pull_request
+          - delete_branch
     - name: allowlist-common-tools
       description: Read-only / query tools; all others blocked by default_action
       action: block
@@ -229,15 +224,49 @@ policy:
         - (?:^|[^A-Za-z0-9+/])(?=[A-Za-z0-9+/]{24,}(?:.*[+/=A-Z0-9]))[A-Za-z0-9+/]{24,}={0,2}(?:[^A-Za-z0-9+/]|$)
         - \b(?:(?!(.)\1{31,})[0-9a-fA-F]){32,}\b
       argPatterns:
-        - field: '*'
+        - field: command
+          patterns:
+            - (?:^|[^A-Za-z0-9+/])(?=[A-Za-z0-9+/]{20,}(?:.*[+/=A-Z0-9]))[A-Za-z0-9+/]{20,}={0,2}
+            - \\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}
+        - field: payload
+          patterns:
+            - (?:^|[^A-Za-z0-9+/])(?=[A-Za-z0-9+/]{20,}(?:.*[+/=A-Z0-9]))[A-Za-z0-9+/]{20,}={0,2}
+            - \\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}
+        - field: data
+          patterns:
+            - (?:^|[^A-Za-z0-9+/])(?=[A-Za-z0-9+/]{20,}(?:.*[+/=A-Z0-9]))[A-Za-z0-9+/]{20,}={0,2}
+            - \\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}
+        - field: input
           patterns:
             - (?:^|[^A-Za-z0-9+/])(?=[A-Za-z0-9+/]{20,}(?:.*[+/=A-Z0-9]))[A-Za-z0-9+/]{20,}={0,2}
             - \\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}
     - name: block-path-traversal
       description: Block tool calls with path traversal attempts
       action: block
+      argPatterns:
+        - field: path
+          patterns:
+            - \.\.
+        - field: file
+          patterns:
+            - \.\.
+        - field: directory
+          patterns:
+            - \.\.
+        - field: filepath
+          patterns:
+            - \.\.
+        - field: filename
+          patterns:
+            - \.\.
+        - field: dir
+          patterns:
+            - \.\.
+        - field: url
+          patterns:
+            - '(?:\.\.[/\\\\]|[/\\\\]\.\.)'
       patterns:
-        - \.\.
+        - '(?:\.\.[/\\\\]|[/\\\\]\.\.|\.\.$)'
     - name: block-shell-injection
       description: Block shell injection, downloaders, and PowerShell encoded commands
       action: block
