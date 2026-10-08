@@ -55,7 +55,7 @@ export const metadata: Metadata = {
 };
 
 const HEAD_SCRIPT = `try{var d=document.documentElement,t=localStorage.getItem('mastyf-theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';d.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','dark')}
-try{var d=document.documentElement,p=location.pathname==='/',s=sessionStorage.getItem('mastyf-intro')==='seen',r=matchMedia('(prefers-reduced-motion: reduce)').matches;d.setAttribute('data-intro',p&&!s&&!r?'play':'skip')}catch(e){document.documentElement.setAttribute('data-intro','skip')}`;
+try{var d=document.documentElement,p=location.pathname==='/',r=matchMedia('(prefers-reduced-motion: reduce)').matches;d.setAttribute('data-intro',p&&!r?'play':'skip')}catch(e){document.documentElement.setAttribute('data-intro','skip')}`;
 
 export const viewport: Viewport = {
   themeColor: [
@@ -78,7 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Runs while the HTML is parsed, before first paint (next/script's beforeInteractive
             waits for the JS bundle, which flashes the default theme first):
             the theme is the saved choice, else the system setting; the home intro plays
-            once per session and never with reduced motion. */}
+            on every load of the home page, never with reduced motion. */}
         <script dangerouslySetInnerHTML={{ __html: HEAD_SCRIPT }} />
       </head>
       <body>
