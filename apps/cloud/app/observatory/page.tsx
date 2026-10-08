@@ -30,7 +30,7 @@ export default async function ObservatoryPage() {
         <Link href="/benchmarks">Benchmarks</Link>
       </p>
       <h1 style={{ margin: '0 0 0.5rem' }}>MCP Ecosystem Observatory</h1>
-      <p style={{ color: '#555', marginBottom: '1.5rem' }}>
+      <p style={{ color: 'var(--ink-2)', marginBottom: '1.5rem' }}>
         Fleet-wide anonymized telemetry — adoption, threat heat, and block-rate trends across mastyf.ai deployments.
       </p>
 
@@ -45,14 +45,14 @@ export default async function ObservatoryPage() {
         <h2 style={{ fontSize: '1.1rem' }}>Top threat classes</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
+            <tr style={{ borderBottom: '2px solid var(--line-strong)', textAlign: 'left' }}>
               <th style={{ padding: '0.5rem' }}>Class</th>
               <th style={{ padding: '0.5rem' }}>Observations</th>
             </tr>
           </thead>
           <tbody>
             {snap.topThreatClasses.map((t) => (
-              <tr key={t.cls} style={{ borderBottom: '1px solid #eee' }}>
+              <tr key={t.cls} style={{ borderBottom: '1px solid var(--line)' }}>
                 <td style={{ padding: '0.5rem' }}>{t.cls}</td>
                 <td style={{ padding: '0.5rem' }}>{t.count}</td>
               </tr>
@@ -63,7 +63,7 @@ export default async function ObservatoryPage() {
 
       <section>
         <h2 style={{ fontSize: '1.1rem' }}>Certification-backed reputation (B1)</h2>
-        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+        <p style={{ color: 'var(--ink-2)', fontSize: '0.9rem' }}>
           {certs.length} certified servers in public registry · {snap.contributorCount ?? 0} reputation contributors
         </p>
         {certs.length > 0 && (
@@ -77,7 +77,7 @@ export default async function ObservatoryPage() {
         )}
       </section>
 
-      <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#888' }}>
+      <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: 'var(--ink-3)' }}>
         Generated {snap.generatedAt}
       </p>
     </main>
@@ -86,8 +86,8 @@ export default async function ObservatoryPage() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '1rem' }}>
-      <div style={{ fontSize: '0.85rem', color: '#666' }}>{label}</div>
+    <div style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '1rem' }}>
+      <div style={{ fontSize: '0.85rem', color: 'var(--ink-2)' }}>{label}</div>
       <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{value}</div>
     </div>
   );

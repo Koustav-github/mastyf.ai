@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { SiteNav } from '@/components/SiteNav';
 import { SiteFooter } from '@/components/SiteFooter';
-import { DynamicBackground } from '@/components/landing/DynamicBackground';
 import '../landing.css';
 
 export default function AssessmentPage() {
@@ -54,9 +53,8 @@ export default function AssessmentPage() {
 
   return (
     <div className="landing">
-      <DynamicBackground />
       <SiteNav session={false} />
-      <main className="pt-24 pb-16">
+      <main className="page-main">
         <div className="lp-section">
           <div className="lp-section-header">
             <span className="lp-pill lp-pill-gold">Interactive Security Diagnostic</span>

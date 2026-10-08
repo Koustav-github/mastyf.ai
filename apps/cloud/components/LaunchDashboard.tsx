@@ -71,7 +71,7 @@ export function LaunchDashboard() {
             padding: '0.5rem',
             borderRadius: '6px',
             border: '1px solid var(--border)',
-            background: '#0a0e13',
+            background: 'var(--bg-sunken)',
             color: 'var(--text)',
           }}
         />

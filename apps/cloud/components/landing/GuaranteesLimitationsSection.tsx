@@ -36,7 +36,7 @@ export function GuaranteesLimitationsSection() {
             <h3>Scientific Boundaries &amp; Scope Limits</h3>
           </div>
           <p className="text-sm muted mb-4">
-            Honest constraints documented in our peer-reviewed research:
+            Honest constraints documented in our published research:
           </p>
           <ul className="lp-limitation-list">
             {GUARANTEES_AND_LIMITATIONS.limitations.map((item, idx) => (

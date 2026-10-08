@@ -1,32 +1,31 @@
 import { Metadata } from 'next';
 import { SiteNav } from '@/components/SiteNav';
 import { SiteFooter } from '@/components/SiteFooter';
-import { DynamicBackground } from '@/components/landing/DynamicBackground';
 import { PricingSection } from '@/components/landing/PricingSection';
-import { FaqSection } from '@/components/landing/FaqSection';
 import { safeAuth } from '@/lib/safe-auth';
-import '../landing.css';
 
 export const metadata: Metadata = {
-  title: 'Pricing & Licensing — Mastyf AI Agent Security Platform',
+  title: 'Pricing — Mastyf',
   description:
-    'Transparent, institutional pricing for AI agent security. Self-host the open-source Gateway for free, or govern agent fleets with enterprise Control Plane and continuous adversarial testing.',
+    'Free to self-host under AGPL-3.0. Paid plans add the Shield desktop app, a team Control Plane, production fleets, and enterprise deployment.',
 };
 
 export default async function PricingPage() {
   const session = await safeAuth();
 
   return (
-    <div className="landing">
-      <DynamicBackground />
+    <>
       <SiteNav session={!!session} />
-      <main className="pt-24 pb-16">
-        <div className="lp-section">
-          <PricingSection />
-          <FaqSection />
-        </div>
+      <main className="page-main">
+        <header className="page-head">
+          <h1 className="page-head__title">Pricing</h1>
+          <p className="page-head__lead">
+            Free to self-host. Pay when you want the desktop app, a team workspace, or a governed fleet.
+          </p>
+        </header>
+        <PricingSection />
       </main>
       <SiteFooter />
-    </div>
+    </>
   );
 }

@@ -85,20 +85,20 @@ export default async function FleetPage() {
         </table>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '24px 0' }}>
-          <div style={{ padding: 16, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>Total Requests</div>
+          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Total Requests</div>
             <div style={{ fontSize: 28, fontWeight: 700 }}>{audit.total}</div>
           </div>
-          <div style={{ padding: 16, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>Blocked</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#dc2626' }}>{audit.blocked}</div>
+          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Blocked</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--critical)' }}>{audit.blocked}</div>
           </div>
-          <div style={{ padding: 16, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>Allowed</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#16a34a' }}>{audit.allowed}</div>
+          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Allowed</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--ok)' }}>{audit.allowed}</div>
           </div>
-          <div style={{ padding: 16, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>Audit Periods</div>
+          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Audit Periods</div>
             <div style={{ fontSize: 28, fontWeight: 700 }}>{audit.periods}</div>
           </div>
         </div>

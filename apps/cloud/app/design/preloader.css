@@ -1,0 +1,321 @@
+/* Home intro: safe runs, an unchecked injection, Mastyf inserted, then the site. */
+
+html.intro-running {
+  overflow: hidden;
+}
+
+html[data-intro='skip'] .preloader,
+html[data-intro='done'] .preloader {
+  display: none;
+}
+
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  isolation: isolate;
+}
+
+/* Same faint grid as the hero, so the hand-off feels continuous. */
+.preloader::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--grid-tile);
+  -webkit-mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, #000 25%, transparent 75%);
+  pointer-events: none;
+}
+
+.pl__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-5) var(--gutter);
+}
+
+.pl__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pl__skip {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+
+.pl__skip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.pl__stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  padding: 0 var(--gutter) var(--s-12);
+}
+
+.pl__caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 0.3em;
+  max-width: none;
+  margin: 0;
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: clamp(1.875rem, 1rem + 2.8vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.pl__caption-a,
+.pl__caption-b {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.pl__caption-b {
+  color: var(--accent);
+}
+
+.pl__panel {
+  width: min(100%, 700px);
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  opacity: 0;
+  transform: translateY(18px);
+  transition: border-color 0.3s var(--ease);
+}
+
+.preloader.is-incident .pl__panel {
+  border-color: var(--critical-line);
+}
+
+.preloader.is-protected .pl__panel {
+  border-color: var(--ok-line);
+}
+
+.pl__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.pl__file {
+  color: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: var(--fs-meta);
+}
+
+.pl__route {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--s-4) var(--s-5);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--line);
+}
+
+.pl__node,
+.pl__gate-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  font-family: var(--font-code);
+  font-size: var(--fs-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pl__wire {
+  flex: 1;
+  height: 1px;
+  background: var(--line-strong);
+  transition: background-color 0.3s var(--ease);
+}
+
+.preloader.is-incident .pl__wire {
+  background: var(--critical-line);
+}
+
+.preloader.is-protected .pl__wire {
+  background: var(--ok-line);
+}
+
+/* Collapsed until Mastyf is inserted; GSAP opens it to its natural width. */
+.pl__gate {
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+}
+
+.pl__gate-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.pl__log {
+  margin: 0;
+  padding: var(--s-2) 0;
+  list-style: none;
+}
+
+.pl__line {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: 7px var(--s-5);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: background-color 0.3s var(--ease);
+}
+
+.pl__n {
+  color: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: var(--fs-label);
+}
+
+.preloader .pl__call {
+  overflow: hidden;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font-size: var(--fs-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl__result {
+  display: inline-flex;
+  grid-row: 1;
+  grid-column: 3;
+  justify-self: end;
+  align-items: baseline;
+  gap: 10px;
+  opacity: 0;
+  white-space: nowrap;
+}
+
+.pl__note {
+  color: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: var(--fs-label);
+}
+
+.preloader.is-incident .pl__line--attack {
+  background: var(--critical-soft);
+}
+
+.preloader.is-incident .pl__line--attack .pl__note {
+  color: var(--critical);
+}
+
+.preloader.is-protected .pl__line--attack {
+  background: var(--ok-soft);
+}
+
+.pl__fix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--line);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.pl__fix-text {
+  flex: 1 1 260px;
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+}
+
+.pl__fix-hint {
+  color: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: var(--fs-label);
+}
+
+.pl__progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--line);
+}
+
+.pl__progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+@media (max-width: 639px) {
+  .pl__line {
+    grid-template-columns: 22px minmax(0, 1fr);
+    row-gap: 4px;
+  }
+
+  .preloader .pl__call {
+    white-space: normal;
+    word-break: break-all;
+  }
+
+  .pl__result {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .pl__route {
+    padding-right: var(--s-4);
+    padding-left: var(--s-4);
+  }
+}

@@ -2,7 +2,6 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteNav } from '@/components/SiteNav';
 import { SiteFooter } from '@/components/SiteFooter';
-import { DynamicBackground } from '@/components/landing/DynamicBackground';
 import { GITHUB_REPO_URL } from '@/lib/github-links';
 import { safeAuth } from '@/lib/safe-auth';
 import '../landing.css';
@@ -41,9 +40,8 @@ export default async function DevelopersPage() {
 
   return (
     <div className="landing">
-      <DynamicBackground />
       <SiteNav session={!!session} />
-      <main className="pt-24 pb-16">
+      <main className="page-main">
         <div className="lp-section">
           <div className="lp-section-header">
             <span className="lp-pill lp-pill-gold">Developer Hub</span>

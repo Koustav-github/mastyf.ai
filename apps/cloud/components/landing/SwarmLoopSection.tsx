@@ -55,7 +55,7 @@ export function SwarmLoopSection() {
           <div className="lp-swarm-banner-text">
             <strong>Automated Regression Guard:</strong> Over 228 multi-turn adversarial fixtures guard every release against regression.
           </div>
-          <Link href="/platform#swarm" className="btn btn-secondary btn-sm btn-pill">
+          <Link href="/docs#swarm" className="btn btn-secondary btn-sm btn-pill">
             Explore Mastyf Swarm Architecture →
           </Link>
         </div>
