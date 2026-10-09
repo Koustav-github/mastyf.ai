@@ -2,7 +2,6 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteNav } from '@/components/SiteNav';
 import { SiteFooter } from '@/components/SiteFooter';
-import { DynamicBackground } from '@/components/landing/DynamicBackground';
 import { GuaranteesLimitationsSection } from '@/components/landing/GuaranteesLimitationsSection';
 import { safeAuth } from '@/lib/safe-auth';
 import '../landing.css';
@@ -39,9 +38,8 @@ export default async function TrustPage() {
 
   return (
     <div className="landing">
-      <DynamicBackground />
       <SiteNav session={!!session} />
-      <main className="pt-24 pb-16">
+      <main className="page-main">
         <div className="lp-section">
           <div className="lp-section-header">
             <span className="lp-pill lp-pill-gold">Trust &amp; Compliance</span>

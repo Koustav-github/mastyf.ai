@@ -70,7 +70,7 @@ MASTYF_AI_CLOUD_API_KEY=<your-api-key>
         </ul>
       </div>
 
-      <div className="card" style={{ marginTop: '1.25rem', borderColor: 'rgba(34, 197, 94, 0.25)' }}>
+      <div className="card" style={{ marginTop: '1.25rem', borderColor: 'var(--ok-line)' }}>
         <h2>Optional: connect self-hosted proxy</h2>
         <p className="muted">
           Running a self-hosted MCP security proxy? Connect it to this {SITE_NAME} tenant to sync

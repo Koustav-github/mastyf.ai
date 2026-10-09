@@ -12,7 +12,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
-  background: rgba(10, 17, 40, 0.05);
+  background: rgb(var(--tint) / 0.05);
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   white-space: nowrap;
@@ -47,7 +47,7 @@
   color: var(--muted);
   padding: 0.2rem 0.45rem;
   border-radius: 4px;
-  background: rgba(10, 17, 40, 0.04);
+  background: rgb(var(--tint) / 0.04);
 }
 
 .certified-stat svg {
@@ -55,23 +55,23 @@
 }
 
 .certified-stat-vuln {
-  color: #d97706;
-  background: rgba(217, 119, 6, 0.08);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .certified-stat-critical {
-  color: #dc2626;
+  color: var(--critical);
   font-weight: 700;
 }
 
 .certified-stat-clean {
-  color: #16a34a;
-  background: rgba(22, 163, 74, 0.08);
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
 }
 
 .certified-stat-provenance {
-  color: #4f46e5;
-  background: rgba(79, 70, 229, 0.08);
+  color: var(--info);
+  background: color-mix(in srgb, var(--info) 8%, transparent);
 }
 
 /* Pillar mini-badges */
@@ -117,12 +117,12 @@
 }
 
 .certified-scan-live {
-  background: rgba(79, 70, 229, 0.1);
-  color: #4f46e5;
+  background: color-mix(in srgb, var(--info) 10%, transparent);
+  color: var(--info);
 }
 
 .certified-scan-static {
-  background: rgba(10, 17, 40, 0.06);
+  background: rgb(var(--tint) / 0.06);
   color: var(--muted);
 }
 
@@ -132,15 +132,15 @@
 }
 
 .certified-freshness.fresh {
-  color: #16a34a;
+  color: var(--ok);
 }
 
 .certified-freshness.moderate {
-  color: #d97706;
+  color: var(--accent);
 }
 
 .certified-freshness.stale {
-  color: #dc2626;
+  color: var(--critical);
 }
 
 /* Confidence badge */
@@ -157,13 +157,13 @@
 }
 
 .certified-confidence-verified {
-  color: #16a34a;
-  background: rgba(22, 163, 74, 0.08);
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
 }
 
 .certified-confidence-estimated {
   color: var(--muted);
-  background: rgba(10, 17, 40, 0.04);
+  background: rgb(var(--tint) / 0.04);
 }
 
 /* Risk label */
@@ -176,15 +176,15 @@
 
 /* CVSS display */
 .certified-stat-cvss {
-  color: #dc2626;
+  color: var(--critical);
   font-weight: 600;
   font-size: 0.7rem;
 }
 
 /* License badge */
 .certified-stat-license {
-  color: #6366f1;
-  background: rgba(99, 102, 241, 0.08);
+  color: var(--info);
+  background: color-mix(in srgb, var(--info) 8%, transparent);
 }
 
 /* Dimension breakdown */
@@ -213,7 +213,7 @@
 .certified-dim-track {
   flex: 1;
   height: 3px;
-  background: rgba(10, 17, 40, 0.08);
+  background: rgb(var(--tint) / 0.08);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -253,9 +253,9 @@
   min-width: 2.25rem;
   padding: 0.45rem 0.7rem;
   border-radius: 6px;
-  border: 1px solid rgba(10, 17, 40, 0.1);
-  background: rgba(10, 17, 40, 0.04);
-  color: var(--muted, #64748b);
+  border: 1px solid rgb(var(--tint) / 0.1);
+  background: rgb(var(--tint) / 0.04);
+  color: var(--muted, var(--ink-3));
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -263,7 +263,7 @@
 }
 
 .certified-page-btn:hover:not(:disabled) {
-  background: rgba(10, 17, 40, 0.08);
+  background: rgb(var(--tint) / 0.08);
 }
 
 .certified-page-btn:disabled {
@@ -272,13 +272,13 @@
 }
 
 .certified-page-btn.certified-page-active {
-  background: #4f46e5;
-  border-color: #4f46e5;
-  color: #fff;
+  background: var(--info);
+  border-color: var(--info);
+  color: var(--bg);
 }
 
 .certified-page-ellipsis {
-  color: var(--muted, #64748b);
+  color: var(--muted, var(--ink-3));
   font-size: 0.85rem;
   padding: 0 0.1rem;
 }

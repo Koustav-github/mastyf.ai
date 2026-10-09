@@ -1,70 +1,50 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { ArrowRight, Download } from 'lucide-react';
 import { SiteNav } from '@/components/SiteNav';
 import { SiteFooter } from '@/components/SiteFooter';
-import { DynamicBackground } from '@/components/landing/DynamicBackground';
-import { CapabilityMatrixSection } from '@/components/landing/CapabilityMatrixSection';
-import { PRODUCT_FAMILY } from '@/components/landing/stats';
+import { PlatformMap } from '@/components/platform/PlatformMap';
 import { safeAuth } from '@/lib/safe-auth';
-import '../landing.css';
 
 export const metadata: Metadata = {
-  title: 'Product Platform Architecture — Mastyf AI Agent Security',
+  title: 'Platform — Mastyf',
   description:
-    'Explore the Mastyf AI Agent Security Platform: Gateway (runtime enforcement), Swarm (continuous adversarial CI/CD), Trust (MCP intelligence), Control Plane (fleet governance), and Guard (subordinate semantic auditor).',
+    'How Shield, Gateway, Swarm, Trust, and the Control Plane fit around one checkpoint between your AI agents and your tools.',
 };
 
 export default async function PlatformPage() {
   const session = await safeAuth();
 
   return (
-    <div className="landing">
-      <DynamicBackground />
+    <>
       <SiteNav session={!!session} />
-      <main className="pt-24 pb-16">
-        <div className="lp-section">
-          <div className="lp-section-header">
-            <span className="lp-pill lp-pill-gold">Architectural Platform</span>
-            <h1>The Mastyf AI Agent Security Platform</h1>
-            <p>
-              An externally enforced security layer for AI-agent execution, combining runtime authorization, continuous adversarial testing, software trust, and fleet governance.
-            </p>
+      <main className="page-main">
+        <header className="page-head">
+          <h1 className="page-head__title">One checkpoint between your agents and your tools</h1>
+          <p className="page-head__lead">
+            Mastyf is five parts built around that checkpoint. Select a part to read how it works.
+          </p>
+        </header>
+
+        <section className="section section--flush-top" aria-label="How the parts fit">
+          <PlatformMap />
+          <div className="page-head__actions">
+            <Link href="/download" className="btn btn-primary">
+              <Download size={14} strokeWidth={2} aria-hidden="true" />
+              Download Shield
+            </Link>
+            <Link href="/docs#components" className="btn">
+              Read the component docs
+              <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
+            </Link>
+            <Link href="/docs#compare" className="link-icon">
+              How Mastyf compares
+              <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
+            </Link>
           </div>
-
-          <div className="my-10 flex flex-col gap-8">
-            {PRODUCT_FAMILY.map((prod) => (
-              <div key={prod.id} id={prod.id} className="card p-8">
-                <div className="flex justify-between items-start flex-wrap gap-2 mb-2">
-                  <div>
-                    <span className="lp-pill text-xs mb-2 inline-block">{prod.category}</span>
-                    <h2 className="text-2xl font-bold text-white">{prod.name}</h2>
-                    <p className="text-amber-400 text-sm font-semibold mb-3">{prod.tagline}</p>
-                  </div>
-                  <span className="lp-pill lp-pill-gold text-xs">{prod.badge}</span>
-                </div>
-
-                <p className="text-slate-300 text-sm mb-4 leading-relaxed">{prod.description}</p>
-
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">
-                  {prod.bullets.map((b) => (
-                    <li key={b} className="text-xs text-slate-400 flex items-center gap-2">
-                      <span className="text-amber-400 font-bold">✓</span>
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href={prod.href} className="text-link text-sm font-semibold">
-                  Learn More About {prod.name} →
-                </Link>
-              </div>
-            ))}
-          </div>
-
-          <CapabilityMatrixSection />
-        </div>
+        </section>
       </main>
       <SiteFooter />
-    </div>
+    </>
   );
 }

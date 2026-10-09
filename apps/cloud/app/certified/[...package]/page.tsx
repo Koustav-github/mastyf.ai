@@ -86,12 +86,12 @@ export default async function CertifiedPackagePage({ params }: Props) {
     <main className="score-page">
       {isStale && (
         <div style={{
-          background: 'rgba(245, 158, 11, 0.15)',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
+          background: 'var(--accent-soft)',
+          border: '1px solid var(--accent-line)',
           borderRadius: '8px',
           padding: '0.75rem 1rem',
           marginBottom: '1rem',
-          color: '#f59e0b',
+          color: 'var(--accent)',
           fontSize: '0.9rem',
         }}>
           This score data may be outdated.

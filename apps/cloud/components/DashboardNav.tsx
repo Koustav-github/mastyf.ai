@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CLOUD_NAME } from '@/lib/product-links';
+import { ThemeToggle } from '@/components/shell/ThemeToggle';
 
 const links = [
   { href: '/dashboard', label: 'Overview' },
@@ -26,6 +27,7 @@ export function DashboardNav() {
           </Link>
         ))}
       </div>
+      <ThemeToggle className="dashboard-nav__theme" />
     </nav>
   );
 }

@@ -1,4 +1,4 @@
-import { SITE_NAME } from '@/lib/product-links';
+import { SITE_NAME, ZENODO_DOI } from '@/lib/product-links';
 
 export const HERO_HEADLINE = {
   line1: 'Your AI can reason.',
@@ -27,7 +27,7 @@ export const HERO_VALUE_PILLARS = [
 ] as const;
 
 export const HERO_TRUST_ITEMS = [
-  { label: 'Paper DOI: 10.5281/zenodo.22501491', href: 'https://doi.org/10.5281/zenodo.22501491' },
+  { label: `Paper DOI: ${ZENODO_DOI}`, href: `https://doi.org/${ZENODO_DOI}` },
   { label: 'Mastyf Guard 1.5B (Frozen V6 Checkpoint)', href: 'https://huggingface.co/Rudraneel93/mastyf-guard-1.5b-v2-boundary-sharpened' },
   { label: '99.52% attack defense on AgentDojo (utility parity)', href: '#evaluation' },
   { label: 'Complete mediation: 0 backend bytes on block', href: '#architecture' },
@@ -103,7 +103,7 @@ export const PRODUCT_FAMILY = [
       'Human-in-the-loop approval before policy updates',
       'Closed-loop feedback from runtime alerts into test fixtures',
     ],
-    href: '/platform#swarm',
+    href: '/docs#swarm',
     badge: 'Adversarial CI',
   },
   {
@@ -168,7 +168,7 @@ export const CAPABILITY_MATRIX = [
   { feature: 'Continuous adversarial CI/CD (Swarm)', mastyf: 'Yes (Security Swarm)', microsoft: 'PyRIT (separate)', noma: 'Red-teaming service', obsidian: 'No', nightfall: 'No' },
   { feature: 'MCP package trust & risk scoring', mastyf: 'Yes (Mastyf Trust)', microsoft: 'Marketplace check', noma: 'Tool discovery', obsidian: 'Asset inventory', nightfall: 'No' },
   { feature: 'Open-source self-hostable core', mastyf: 'Yes (AGPL-3.0)', microsoft: 'Yes (MIT/Apache)', noma: 'No (SaaS only)', obsidian: 'No (SaaS only)', nightfall: 'No (SaaS only)' },
-  { feature: 'Peer-reviewed research & formal proofs', mastyf: 'Yes (Theorems 1–3, Prop 1)', microsoft: 'Whitepapers', noma: 'Marketing docs', obsidian: 'Reports', nightfall: 'Docs' },
+  { feature: 'Published research & formal proofs', mastyf: 'Yes (Theorems 1–3, Prop 1)', microsoft: 'Whitepapers', noma: 'Marketing docs', obsidian: 'Reports', nightfall: 'Docs' },
 ] as const;
 
 /** Interactive showcase tabs — real product surfaces from the repo. */
@@ -194,7 +194,7 @@ export const SHOWCASE_TABS = [
     bullets: ['Continuous CI/CD automated red-teaming', 'Threat Lab human-in-the-loop attack mutation', 'Runtime alerts automatically enrich regression fixtures'],
     image: '/assets/showcase/dashboard.png',
     imageAlt: 'Mastyf Security Swarm adversarial testing interface',
-    href: '/platform#swarm',
+    href: '/docs#swarm',
     cta: 'See Swarm Hardening Loop',
     external: false,
     demo: 'cost' as const,
@@ -281,6 +281,9 @@ export const GUARANTEES_AND_LIMITATIONS = {
 export const PRICING_TIERS = [
   {
     id: 'community',
+    audience: 'Individuals and researchers',
+    highlights: ['Self-hosted Gateway', 'YAML policy engine', 'Public MCP trust scores'],
+    shortCta: 'Get it on GitHub',
     name: 'Community',
     price: '$0',
     billing: 'Free forever · AGPL-3.0',
@@ -300,6 +303,9 @@ export const PRICING_TIERS = [
   },
   {
     id: 'developer',
+    audience: 'Developers using Claude Desktop, Cursor or Windsurf',
+    highlights: ['Shield desktop app', 'Decisions in under 4.8µs', 'Live MCP CVE feed'],
+    shortCta: 'Subscribe',
     name: 'Developer Pro',
     price: '$49',
     billing: 'per month',
@@ -312,13 +318,16 @@ export const PRICING_TIERS = [
       'Continuous streaming MCP CVE threat intelligence',
       'Instant license key delivery via Lemon Squeezy',
     ],
-    cta: 'Subscribe Developer Pass ($49/mo) →',
+    cta: 'Subscribe Developer Pass ($49/mo)',
     href: 'https://mastyfai.lemonsqueezy.com/checkout/buy/49323daa-90ef-4157-90b9-8706acd13fe6',
     featured: true,
     external: true,
   },
   {
     id: 'team',
+    audience: 'Teams shipping agents to customers',
+    highlights: ['Up to 15 agent environments', 'Cloud Control Plane with roles', 'Attack tests in CI'],
+    shortCta: 'Subscribe',
     name: 'Team',
     price: '$499',
     billing: 'per month',
@@ -332,13 +341,16 @@ export const PRICING_TIERS = [
       'SIEM webhook and telemetry export',
       'Priority email and Slack support',
     ],
-    cta: 'Subscribe Team Pass →',
+    cta: 'Subscribe Team Pass',
     href: 'https://mastyfai.lemonsqueezy.com/checkout/buy/88fb8fb8-8b32-4a6c-8e2f-95cfda639946',
     featured: false,
     external: true,
   },
   {
     id: 'business',
+    audience: 'Companies running agents in production',
+    highlights: ['Up to 50 agent environments', 'Private VPC and Kubernetes', '99.9% uptime SLA'],
+    shortCta: 'Start a 30-day pilot',
     name: 'Business',
     price: '$1,999',
     billing: 'per month',
@@ -352,13 +364,16 @@ export const PRICING_TIERS = [
       '99.9% gateway uptime SLA',
       'Dedicated security engineer onboarding',
     ],
-    cta: 'Start 30-Day Pilot →',
+    cta: 'Start 30-Day Pilot',
     href: '/pilot',
     featured: false,
     external: false,
   },
   {
     id: 'enterprise',
+    audience: 'Regulated and mission-critical systems',
+    highlights: ['Unlimited environments', 'On-prem or air-gapped', 'Compliance evidence packs'],
+    shortCta: 'Request a pilot',
     name: 'Enterprise',
     price: 'Custom',
     billing: 'Starts ~$35k ARR',

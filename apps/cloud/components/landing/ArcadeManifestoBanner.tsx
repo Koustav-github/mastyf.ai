@@ -15,7 +15,7 @@ export function ArcadeManifestoBanner() {
           <span className="text-white font-semibold">Rudraneel Das</span>
           <span className="text-slate-500">·</span>
           <Link href="/research" className="text-amber-400 hover:underline">
-            Zenodo Monograph (DOI: {ZENODO_DOI}) ↗
+            Zenodo preprint (DOI: {ZENODO_DOI}) ↗
           </Link>
         </div>
       </div>

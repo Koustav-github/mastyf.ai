@@ -28,25 +28,25 @@ export default async function LicensePage() {
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: 40 }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>License</h1>
-      <p style={{ color: '#6b7280', marginBottom: 32 }}>Manage your organization&apos;s license tier</p>
+      <p style={{ color: 'var(--ink-2)', marginBottom: 32 }}>Manage your organization&apos;s license tier</p>
 
-      <div style={{ padding: 24, background: tier === 'free' ? '#fef3c7' : '#dcfce7', borderRadius: 8, marginBottom: 32, border: `2px solid ${tier === 'free' ? '#f59e0b' : '#16a34a'}` }}>
-        <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 4 }}>Current Tier</div>
-        <div style={{ fontSize: 32, fontWeight: 700, color: tier === 'free' ? '#92400e' : '#166534', textTransform: 'uppercase' }}>{tier}</div>
-        {lic.activated_at && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>Activated: {new Date(lic.activated_at).toLocaleDateString()}</div>}
-        {lic.expires_at && <div style={{ fontSize: 12, color: '#6b7280' }}>Expires: {new Date(lic.expires_at).toLocaleDateString()}</div>}
+      <div style={{ padding: 24, background: tier === 'free' ? 'var(--accent-soft)' : 'var(--ok-soft)', borderRadius: 8, marginBottom: 32, border: `2px solid ${tier === 'free' ? 'var(--accent)' : 'var(--ok)'}` }}>
+        <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 4 }}>Current Tier</div>
+        <div style={{ fontSize: 32, fontWeight: 700, color: tier === 'free' ? 'var(--accent)' : 'var(--ok)', textTransform: 'uppercase' }}>{tier}</div>
+        {lic.activated_at && <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 8 }}>Activated: {new Date(lic.activated_at).toLocaleDateString()}</div>}
+        {lic.expires_at && <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Expires: {new Date(lic.expires_at).toLocaleDateString()}</div>}
       </div>
 
       <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Available Plans</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         {tiers.map(t => (
-          <div key={t.id} style={{ padding: 16, background: tier === t.id ? '#eff6ff' : '#fff', border: `2px solid ${tier === t.id ? '#3b82f6' : '#e5e7eb'}`, borderRadius: 8 }}>
+          <div key={t.id} style={{ padding: 16, background: tier === t.id ? 'var(--info-soft)' : 'var(--surface)', border: `2px solid ${tier === t.id ? 'var(--info)' : 'var(--line)'}`, borderRadius: 8 }}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{t.name}</div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{t.instances === -1 ? 'Unlimited' : t.instances} instances</div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{t.teams === -1 ? 'Unlimited' : t.teams} teams</div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>{t.users === -1 ? 'Unlimited' : t.users} users</div>
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>{t.features}</div>
-            {tier === t.id && <div style={{ marginTop: 8, padding: '4px 8px', background: '#3b82f6', color: '#fff', borderRadius: 4, fontSize: 11, textAlign: 'center', fontWeight: 600 }}>Current</div>}
+            <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 4 }}>{t.instances === -1 ? 'Unlimited' : t.instances} instances</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 4 }}>{t.teams === -1 ? 'Unlimited' : t.teams} teams</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 8 }}>{t.users === -1 ? 'Unlimited' : t.users} users</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{t.features}</div>
+            {tier === t.id && <div style={{ marginTop: 8, padding: '4px 8px', background: 'var(--info)', color: 'var(--bg)', borderRadius: 4, fontSize: 11, textAlign: 'center', fontWeight: 600 }}>Current</div>}
           </div>
         ))}
       </div>

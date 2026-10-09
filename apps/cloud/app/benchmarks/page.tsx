@@ -29,27 +29,27 @@ export default async function BenchmarksPage() {
         <Link href="/observatory">Ecosystem observatory →</Link>
       </p>
       <h1 style={{ margin: '0 0 0.5rem' }}>Public benchmark leaderboard</h1>
-      <p style={{ color: '#555', marginBottom: '1.5rem' }}>
+      <p style={{ color: 'var(--ink-2)', marginBottom: '1.5rem' }}>
         Community-submitted proxy profiles ranked by block rate (higher is better) and false-positive rate
         (lower is better). Aggregated fleet telemetry feeds the{' '}
         <Link href="/observatory">ecosystem health observatory</Link>.
       </p>
 
-      <section style={{ marginBottom: '2rem', padding: '1rem', background: '#f8f9fa', borderRadius: 8 }}>
+      <section style={{ marginBottom: '2rem', padding: '1rem', background: 'var(--bg-sunken)', borderRadius: 8 }}>
         <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.1rem' }}>Observatory snapshot (B2)</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
           <div>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>Avg block rate</p>
+            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: '0.85rem' }}>Avg block rate</p>
             <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>{pct(observatory.avgBlockRate)}</p>
           </div>
           <div>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>Server count</p>
+            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: '0.85rem' }}>Server count</p>
             <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>
               {observatory.serverCount ?? 'Unavailable'}
             </p>
           </div>
           <div>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>Top threat class</p>
+            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: '0.85rem' }}>Top threat class</p>
             <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>
               {observatory.topThreatClasses[0]?.cls ?? '—'}
             </p>
@@ -58,7 +58,7 @@ export default async function BenchmarksPage() {
       </section>
 
       {error ? (
-        <p role="alert" style={{ color: '#b00020' }}>
+        <p role="alert" style={{ color: 'var(--critical)' }}>
           {error}
         </p>
       ) : rows.length === 0 ? (
@@ -66,7 +66,7 @@ export default async function BenchmarksPage() {
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
+            <tr style={{ borderBottom: '2px solid var(--line-strong)', textAlign: 'left' }}>
               <th style={{ padding: '0.5rem' }}>Profile</th>
               <th style={{ padding: '0.5rem' }}>Package</th>
               <th style={{ padding: '0.5rem' }}>Block rate</th>
@@ -78,7 +78,7 @@ export default async function BenchmarksPage() {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} style={{ borderBottom: '1px solid #eee' }}>
+              <tr key={row.id} style={{ borderBottom: '1px solid var(--line)' }}>
                 <td style={{ padding: '0.5rem' }}>{row.profile}</td>
                 <td style={{ padding: '0.5rem' }}>{row.packageName ?? '—'}</td>
                 <td style={{ padding: '0.5rem' }}>{pct(row.blockRate)}</td>

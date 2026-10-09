@@ -1,0 +1,154 @@
+/*
+ * Mastyf design tokens. Self-contained so the local dashboard
+ * (deploy/dashboard-spa) can import the same file.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces: near-black with a warm cast */
+  --bg: #0a0a0b;
+  --bg-sunken: #070708;
+  --surface: #111113;
+  --surface-raised: #18181b;
+  --surface-hover: #1f1f23;
+  --glass: rgba(17, 17, 19, 0.6);
+  --glass-strong: rgba(17, 17, 19, 0.8);
+  /* Channel triplet for translucent overlays: rgb(var(--tint) / 0.04) */
+  --tint: 255 255 255;
+
+  /* Lines */
+  --line: #222225;
+  --line-strong: #303035;
+  --line-focus: #e3b453;
+
+  /* Text: warm off-white and warm greys */
+  --ink: #ededea;
+  --ink-strong: #f7f7f3;
+  --ink-2: #a3a39b;
+  --ink-3: #74746d;
+
+  /* Brand accent: the gold of the Mastyf check */
+  --accent: #e3b453;
+  --accent-hover: #efc56f;
+  --accent-ink: #0a0a0b;
+  --accent-soft: rgba(227, 180, 83, 0.12);
+  --accent-line: rgba(227, 180, 83, 0.4);
+
+  /* Meaning: allowed / held / blocked */
+  --ok: #7fd28e;
+  --ok-soft: rgba(127, 210, 142, 0.12);
+  --ok-line: rgba(127, 210, 142, 0.38);
+  --warn: #ee9150;
+  --warn-soft: rgba(238, 145, 80, 0.12);
+  --warn-line: rgba(238, 145, 80, 0.38);
+  --critical: #ef6b5b;
+  --critical-soft: rgba(239, 107, 91, 0.12);
+  --critical-line: rgba(239, 107, 91, 0.4);
+  --neutral-soft: rgba(163, 163, 155, 0.1);
+  --info: #7cb4d8;
+  --info-soft: rgba(124, 180, 216, 0.12);
+
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+  /* Type: Bricolage Grotesque for display, IBM Plex Sans for reading, IBM Plex Mono for technical text */
+  --font-display: var(--font-bricolage, 'Bricolage Grotesque'), var(--font-ui, 'IBM Plex Sans'), system-ui, sans-serif;
+  --font: var(--font-ui, 'IBM Plex Sans'), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-code: var(--font-mono, 'IBM Plex Mono'), ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --fs-label: 0.71875rem;  /* 11.5px mono labels */
+  --fs-meta: 0.8125rem;    /* 13px */
+  --fs-body: 0.9375rem;    /* 15px */
+  --fs-lead: 1.125rem;     /* 18px */
+  --fs-h3: 1.375rem;       /* 22px */
+  --fs-h2: clamp(2rem, 1.3rem + 2.2vw, 3rem);
+  --fs-h1: clamp(2.5rem, 1.6rem + 3vw, 3.75rem);
+  --fs-display: clamp(3rem, 1.4rem + 5vw, 5.75rem);
+  --lh-tight: 1.04;
+  --lh-snug: 1.3;
+  --lh-body: 1.65;
+  --track-label: 0.08em;
+  --track-eyebrow: 0.2em;
+  --track-display: -0.035em;
+  --track-body: 0;
+
+  /* Space (4px grid) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-24: 96px;
+
+  /* Shape: pills for controls, soft cards */
+  --r-sm: 4px;
+  --r: 8px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* Layout */
+  --content-max: 1240px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --nav-h: 56px;
+  --nav-inset: 14px;
+  --section-pad: clamp(44px, 5vw, 64px);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 120ms;
+  --t: 200ms;
+  --t-slow: 320ms;
+}
+
+/*
+ * Light theme: warm white paper, warm near-black ink, and a deeper bronze gold so
+ * gold text keeps its contrast. Chosen before first paint by the script in
+ * app/layout.tsx (saved choice, else the system setting).
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f2e9;
+  --bg-sunken: #eee8db;
+  --surface: #fbf8f1;
+  --surface-raised: #fffcf6;
+  --surface-hover: #efe9dc;
+  --glass: rgba(251, 248, 241, 0.66);
+  --glass-strong: rgba(251, 248, 241, 0.88);
+  --tint: 74 58 32;
+
+  --line: #e3dccd;
+  --line-strong: #d1c7b3;
+  --line-focus: #94640f;
+
+  --ink: #2b2620;
+  --ink-strong: #1a1611;
+  --ink-2: #5e564a;
+  --ink-3: #7d7466;
+
+  --accent: #94640f;
+  --accent-hover: #7b520a;
+  --accent-ink: #fbf8f1;
+  --accent-soft: rgba(176, 122, 26, 0.12);
+  --accent-line: rgba(148, 100, 15, 0.38);
+
+  --ok: #2e7d43;
+  --ok-soft: rgba(46, 125, 67, 0.1);
+  --ok-line: rgba(46, 125, 67, 0.34);
+  --warn: #b0561a;
+  --warn-soft: rgba(176, 86, 26, 0.1);
+  --warn-line: rgba(176, 86, 26, 0.34);
+  --critical: #b8392a;
+  --critical-soft: rgba(184, 57, 42, 0.1);
+  --critical-line: rgba(184, 57, 42, 0.36);
+  --neutral-soft: rgba(94, 86, 74, 0.08);
+  --info: #2d6a92;
+  --info-soft: rgba(45, 106, 146, 0.1);
+
+  --shadow: 0 12px 32px rgba(74, 58, 32, 0.12);
+  --grid-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%234a3a20' stroke-opacity='0.08'/%3E%3C/svg%3E");
+}

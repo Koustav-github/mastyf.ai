@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Search } from 'lucide-react';
 import { BADGE_ALT_TEXT } from '@/lib/badge-brand';
 import { buildBadgeEmbedMarkdown } from '@/lib/trust-badge-svg';
 
@@ -34,17 +35,18 @@ export function BadgeLookupWidget({ variant = 'compact' }: Props) {
         Look up an MCP server package
       </label>
       <div className="socket-search-row">
-        <span className="socket-search-icon" aria-hidden>
-          ⌕
+        <span className="socket-search-field">
+          <Search className="socket-search-icon" size={16} strokeWidth={1.75} aria-hidden="true" />
+          <input
+            id="badge-pkg"
+            className="socket-search-input"
+            value={pkg}
+            onChange={(e) => setPkg(e.target.value)}
+            placeholder="@scope/mcp-server"
+            autoComplete="off"
+            spellCheck={false}
+          />
         </span>
-        <input
-          id="badge-pkg"
-          className="socket-search-input"
-          value={pkg}
-          onChange={(e) => setPkg(e.target.value)}
-          placeholder="@scope/mcp-server"
-          autoComplete="off"
-        />
         <Link
           href={trimmed ? verifyPath : '#'}
           className="socket-search-btn"

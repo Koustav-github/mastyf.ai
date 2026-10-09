@@ -61,17 +61,17 @@ function getPillarScores(scoreReport: {
 }
 
 function pillarColor(score: number): string {
-  if (score >= 80) return '#22c55e';
-  if (score >= 60) return '#3b82f6';
-  if (score >= 40) return '#f59e0b';
-  return '#ef4444';
+  if (score >= 80) return 'var(--ok)';
+  if (score >= 60) return 'var(--info)';
+  if (score >= 40) return 'var(--accent)';
+  return 'var(--critical)';
 }
 
 function riskLabel(score: number): { label: string; color: string } {
-  if (score >= 85) return { label: 'Enterprise Ready', color: '#16a34a' };
-  if (score >= 65) return { label: 'Production Ready', color: '#3b82f6' };
-  if (score >= 40) return { label: 'Proceed with Caution', color: '#f59e0b' };
-  return { label: 'Critical Risk', color: '#dc2626' };
+  if (score >= 85) return { label: 'Enterprise Ready', color: 'var(--ok)' };
+  if (score >= 65) return { label: 'Production Ready', color: 'var(--info)' };
+  if (score >= 40) return { label: 'Proceed with Caution', color: 'var(--accent)' };
+  return { label: 'Critical Risk', color: 'var(--critical)' };
 }
 
 function confidenceMark(checks: unknown[]): 'verified' | 'estimated' {
@@ -337,9 +337,9 @@ export function PackageGrid() {
             width: '100%',
             padding: '0.75rem 1rem',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.1)',
-            background: 'rgba(255,255,255,0.05)',
-            color: '#fff',
+            border: '1px solid var(--line-strong)',
+            background: 'var(--surface)',
+            color: 'var(--ink-strong)',
             fontSize: '0.95rem',
             outline: 'none',
           }}
@@ -351,7 +351,7 @@ export function PackageGrid() {
           {error}
         </p>
       ) : loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--ink-3)' }}>
           Loading packages...
         </div>
       ) : packages.length === 0 ? (

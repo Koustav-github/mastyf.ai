@@ -1,77 +1,81 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
+import { ArrowRight, ArrowUpRight, Download } from 'lucide-react';
 import { SiteNav } from '@/components/SiteNav';
 import { SiteFooter } from '@/components/SiteFooter';
-import { DynamicBackground } from '@/components/landing/DynamicBackground';
-import { AcademicPaperHero } from '@/components/landing/AcademicPaperHero';
-import { GuaranteesLimitationsSection } from '@/components/landing/GuaranteesLimitationsSection';
+import { CiteButton } from '@/components/research/CiteButton';
+import { PaperReader } from '@/components/research/PaperReader';
+import {
+  PAPER_LOCAL_PDF_PATH,
+  PAPER_SUBTITLE,
+  PAPER_TITLE,
+  PAPER_VERSION,
+  ZENODO_DOI,
+  ZENODO_URL,
+} from '@/lib/product-links';
 import { safeAuth } from '@/lib/safe-auth';
-import '../landing.css';
 
 export const metadata: Metadata = {
-  title: 'Research Portal & Academic Paper — Mastyf AI Agent Security',
+  title: 'Research — Mastyf',
   description:
-    'Capability-Mediated Perimeters for Secure AI Agent Tool Execution. Peer-reviewed treatise, formal invariants, theorems, and 6-regime empirical benchmarks by Rudraneel Das.',
+    'Capability-Mediated Perimeters for Secure AI Agent Tool Execution: read the open-access preprint by Rudraneel Das, with formal invariants and benchmark results.',
 };
 
 export default async function ResearchPage() {
   const session = await safeAuth();
 
   return (
-    <div className="landing">
-      <DynamicBackground />
+    <>
       <SiteNav session={!!session} />
-      <main className="pt-24 pb-16">
-        <div className="lp-section">
-          <div className="lp-section-header">
-            <span className="lp-pill lp-pill-gold">Reproducible Science &amp; Formal Foundations</span>
-            <h1>Academic Research Portal</h1>
-            <p>
-              Security infrastructure must be founded on verifiable proofs and rigorous empirical evaluation, not marketing claims.
-            </p>
-          </div>
+      <main className="page-main">
+        <header className="page-head">
+          <p className="eyebrow">Preprint, version {PAPER_VERSION}</p>
+          <h1 className="page-head__title page-head__title--long">{PAPER_TITLE}</h1>
+          <p className="page-head__lead">{PAPER_SUBTITLE}</p>
 
-          <AcademicPaperHero standalone={true} />
-
-          <div className="my-16">
-            <div className="lp-section-header" style={{ textAlign: 'left', margin: '0 0 1.5rem' }}>
-              <span className="lp-pill text-xs">Mathematical Specification</span>
-              <h3 className="text-2xl font-bold text-white mt-1">Core Execution-Certainty Semantics</h3>
-              <p className="text-slate-400 text-sm">
-                How Mastyf formalizes tool execution states to prevent desynchronization attacks in autonomous agent workflows.
-              </p>
+          <dl className="facts">
+            <div>
+              <dt>Author</dt>
+              <dd>Rudraneel Das</dd>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="card p-6 bg-black/40 border border-white/5">
-                <span className="font-mono text-xs text-rose-400 font-bold block mb-1">State 1: NOT_SENT</span>
-                <h4 className="text-sm font-bold text-white mb-2">Wire Isolation Invariant</h4>
-                <p className="text-xs text-slate-300 font-mono leading-relaxed">
-                  ExecutionBytes(a) = 0. Tool call was rejected by CBAC, DIFC, or Guard auditor before any transport socket or pipe write occurred.
-                </p>
-              </div>
-
-              <div className="card p-6 bg-black/40 border border-white/5">
-                <span className="font-mono text-xs text-amber-400 font-bold block mb-1">State 2: SENT_CHILD_NO_RESPONSE</span>
-                <h4 className="text-sm font-bold text-white mb-2">Transient Dispatch State</h4>
-                <p className="text-xs text-slate-300 font-mono leading-relaxed">
-                  ExecutionBytes(a) &gt; 0, but verified return confirmation has not arrived. ExecutionCertainty(a) = UNKNOWN. Downstream steps locked.
-                </p>
-              </div>
-
-              <div className="card p-6 bg-black/40 border border-white/5">
-                <span className="font-mono text-xs text-emerald-400 font-bold block mb-1">State 3: RESPONSE_RECEIVED</span>
-                <h4 className="text-sm font-bold text-white mb-2">Verified State Transition</h4>
-                <p className="text-xs text-slate-300 font-mono leading-relaxed">
-                  Response verified and cryptographic execution receipt generated. Only now can dependent downstream DAG tasks receive authorization.
-                </p>
-              </div>
+            <div>
+              <dt>DOI</dt>
+              <dd>
+                <a href={`https://doi.org/${ZENODO_DOI}`} target="_blank" rel="noopener noreferrer">
+                  {ZENODO_DOI}
+                </a>
+              </dd>
             </div>
-          </div>
+            <div>
+              <dt>License</dt>
+              <dd>CC BY 4.0, open access</dd>
+            </div>
+          </dl>
 
-          <GuaranteesLimitationsSection />
-        </div>
+          <div className="page-head__actions">
+            <a href={PAPER_LOCAL_PDF_PATH} download className="btn btn-primary">
+              <Download size={14} strokeWidth={2} aria-hidden="true" />
+              Download PDF
+            </a>
+            <a href={ZENODO_URL} target="_blank" rel="noopener noreferrer" className="btn">
+              Zenodo record
+              <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />
+            </a>
+            <CiteButton />
+          </div>
+        </header>
+
+        <section className="section section--flush-top research-reader" aria-label="Read the paper">
+          <PaperReader />
+          <p className="research-reader__more">
+            <Link href="/docs#paper" className="link-icon">
+              Theorems, proofs and results, explained in the docs
+              <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
+            </Link>
+          </p>
+        </section>
       </main>
       <SiteFooter />
-    </div>
+    </>
   );
 }

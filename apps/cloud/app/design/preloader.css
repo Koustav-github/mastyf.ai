@@ -1,0 +1,199 @@
+/* Home intro: a short dark curtain in both themes (components/landing/Preloader.tsx). */
+
+html.intro-running {
+  overflow: hidden;
+}
+
+html[data-intro='skip'] .preloader,
+html[data-intro='done'] .preloader {
+  display: none;
+}
+
+/* The curtain is always dark, so it carries its own colours instead of the theme's. */
+.preloader {
+  --pl-bg: #050506;
+  --pl-ink: #f6f2e9;
+  --pl-dim: #8a857b;
+  --pl-ok: #7fd28e;
+  --pl-bad: #ef6b5b;
+  --pl-gold: #e3b453;
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--pl-ink);
+  background: var(--pl-bg);
+  isolation: isolate;
+}
+
+.pl__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-5) var(--gutter);
+  opacity: 0;
+}
+
+.pl__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pl__skip {
+  padding: 6px 14px;
+  color: var(--pl-dim);
+  font: inherit;
+  font-size: var(--fs-meta);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--pl-ink) 25%, transparent);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition:
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.pl__skip:hover {
+  color: var(--pl-ink);
+  border-color: color-mix(in srgb, var(--pl-ink) 50%, transparent);
+}
+
+.pl__stage {
+  display: grid;
+  flex: 1;
+  align-content: center;
+  justify-items: center;
+  gap: var(--s-6);
+  padding: 0 var(--gutter);
+}
+
+.pl__label {
+  margin: 0;
+  color: var(--pl-dim);
+  font-family: var(--font-code);
+  font-size: var(--fs-label);
+  letter-spacing: var(--track-eyebrow);
+  text-transform: uppercase;
+}
+
+/* Every call occupies the same spot; one shows at a time. */
+.pl__calls {
+  display: grid;
+  place-items: center;
+  width: min(100%, 1100px);
+  min-height: 3.2em;
+}
+
+.pl__call {
+  display: flex;
+  flex-wrap: wrap;
+  grid-area: 1 / 1;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3) var(--s-4);
+  margin: 0;
+  font-family: var(--font-code);
+  font-size: clamp(1rem, 0.6rem + 1.8vw, 1.875rem);
+  text-align: center;
+  opacity: 0;
+}
+
+.preloader .pl__call code {
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  border: 0;
+}
+
+.preloader .pl__call--attack code {
+  color: var(--pl-bad);
+}
+
+.pl__attack {
+  position: relative;
+}
+
+/* Mastyf cuts the injected call. */
+.pl__strike {
+  position: absolute;
+  top: 54%;
+  right: -6px;
+  left: -6px;
+  height: 3px;
+  background: var(--pl-gold);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.pl__tags {
+  display: grid;
+}
+
+.pl__tags > * {
+  grid-area: 1 / 1;
+}
+
+.pl__tag {
+  padding: 4px 12px;
+  font-family: var(--font-code);
+  font-size: clamp(0.75rem, 0.6rem + 0.4vw, 0.9375rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  border: 1px solid;
+  border-radius: var(--r-pill);
+  opacity: 0;
+}
+
+.pl__tag--ok {
+  color: var(--pl-ok);
+  background: color-mix(in srgb, var(--pl-ok) 14%, transparent);
+}
+
+.pl__tag--pending {
+  color: var(--pl-bad);
+  background: color-mix(in srgb, var(--pl-bad) 12%, transparent);
+}
+
+.pl__tag--blocked {
+  color: var(--pl-gold);
+  background: color-mix(in srgb, var(--pl-gold) 16%, transparent);
+}
+
+.pl__stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 10px;
+  color: var(--pl-gold);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border: 2px solid var(--pl-gold);
+  border-radius: var(--r-pill);
+  opacity: 0;
+}
+
+.pl__progress {
+  height: 3px;
+  background: color-mix(in srgb, var(--pl-ink) 12%, transparent);
+}
+
+.pl__progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--pl-gold);
+  transform: scaleX(0);
+  transform-origin: left center;
+}

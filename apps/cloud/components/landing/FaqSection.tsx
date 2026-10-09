@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Minus, Plus } from 'lucide-react';
 import { SITE_NAME } from '@/lib/product-links';
 
 const FAQ_ITEMS = [
@@ -30,35 +31,53 @@ const FAQ_ITEMS = [
   },
 ];
 
-export function FaqSection() {
+/** The FAQ accordion on its own, for the docs page. */
+export function FaqList() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="landing-faq" id="faq">
-      <div className="lp-section-header">
-        <h2>Your questions, answered</h2>
-        <p>Runtime enforcement, trust scores, Security Swarm, and deployment.</p>
-      </div>
-      <div className="landing-faq-list">
-        {FAQ_ITEMS.map((item, i) => {
-          const open = openIndex === i;
-          return (
-            <div key={item.q} className={`landing-faq-item${open ? ' landing-faq-item-open' : ''}`}>
+    <div className="faq">
+      {FAQ_ITEMS.map((item, i) => {
+        const open = openIndex === i;
+        return (
+          <div key={item.q} className={`faq__item${open ? ' is-open' : ''}`}>
+            <h3 className="faq__q">
               <button
                 type="button"
-                className="landing-faq-question"
+                id={`faq-q-${i}`}
                 aria-expanded={open}
+                aria-controls={`faq-a-${i}`}
                 onClick={() => setOpenIndex(open ? null : i)}
               >
                 {item.q}
-                <span aria-hidden className="landing-faq-chevron">
-                  {open ? '−' : '+'}
-                </span>
+                {open ? (
+                  <Minus size={15} strokeWidth={1.75} aria-hidden="true" />
+                ) : (
+                  <Plus size={15} strokeWidth={1.75} aria-hidden="true" />
+                )}
               </button>
-              {open ? <p className="landing-faq-answer">{item.a}</p> : null}
-            </div>
-          );
-        })}
+            </h3>
+            {open ? (
+              <div className="faq__a" id={`faq-a-${i}`} role="region" aria-labelledby={`faq-q-${i}`}>
+                <p>{item.a}</p>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function FaqSection() {
+  return (
+    <section className="section" id="faq" aria-labelledby="faq-title">
+      <div className="section__grid">
+        <div className="section__aside">
+          <h2 id="faq-title">Your questions, answered</h2>
+          <p>Runtime enforcement, trust scores, Security Swarm, and deployment.</p>
+        </div>
+        <FaqList />
       </div>
     </section>
   );

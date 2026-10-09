@@ -483,7 +483,7 @@ export function MastyfShieldVisualizer() {
                 Afinal = Astruct ∩ Asemantic ⊆ Astruct
               </div>
               <Link href="/research" className="text-link text-xs font-semibold">
-                Read Peer-Reviewed Paper &amp; Theorems →
+                Read the Paper &amp; Theorems →
               </Link>
             </div>
           </div>

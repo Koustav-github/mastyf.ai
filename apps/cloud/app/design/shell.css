@@ -1,0 +1,649 @@
+/* Application shell: floating navbar, footer, cursor, smooth-scroll base. */
+
+/* ------------------------------------------------------------ lenis */
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+/* ------------------------------------------------------------ navbar */
+
+.nav {
+  position: fixed;
+  top: var(--nav-inset);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 0 var(--gutter);
+  pointer-events: none;
+}
+
+.nav-spacer {
+  height: calc(var(--nav-h) + var(--nav-inset) + var(--s-4));
+}
+
+@keyframes nav-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.nav__row {
+  --nav-badge: 64px;
+  /* Where the rolled-up dog sits on its track (set by SiteNav). */
+  --dog-x: 0px;
+  position: relative;
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+.nav__bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: var(--nav-h);
+  padding: 0 var(--s-2) 0 var(--s-5);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  pointer-events: auto;
+  /* `translate`, not `transform`: the entrance animation below holds the transform. */
+  translate: var(--dog-x) 0;
+  /* Animate the bar itself: opacity on an ancestor would cut the backdrop blur off from the page. */
+  animation: nav-enter 420ms var(--ease) both;
+  transition:
+    height var(--t) var(--ease),
+    background-color var(--t) var(--ease),
+    border-color var(--t) var(--ease);
+}
+
+.nav.is-scrolled .nav__bar {
+  height: 50px;
+  background: color-mix(in srgb, var(--surface) 66%, transparent);
+  border-color: var(--line-strong);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  backdrop-filter: blur(28px) saturate(140%);
+}
+
+/* While rolled up (or rolling), GSAP owns the bar's size and its contents are clipped. */
+.nav__bar.is-rolled {
+  overflow: hidden;
+  transition: none;
+}
+
+.nav__inner {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--s-6);
+  width: 100%;
+}
+
+/* Inner controls are pills to match the bar. */
+.nav__bar .nav__link,
+.nav__bar .icon-btn,
+.nav__bar .btn {
+  border-radius: var(--r-pill);
+}
+
+.nav__brand {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.nav__brand:hover {
+  color: var(--ink-strong);
+}
+
+.nav__mark {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* The logo is light line art; on the light theme it is inverted with its hues kept,
+   so the lines turn ink and the gold check stays gold. */
+:root[data-theme='light'] .brand-mark {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* ---- rolled up: the dog face and the page-progress bar */
+
+/* Carries the dog along its track. GSAP writes `translate: none` on elements whose
+   transforms it animates, so the travel lives on this wrapper, not the button. */
+.nav__dog {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  translate: var(--dog-x) 0;
+  pointer-events: none;
+}
+
+.nav__face {
+  display: grid;
+  place-items: center;
+  width: var(--nav-badge);
+  height: var(--nav-badge);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  /* GSAP reveals it; hidden until then so it never flashes before hydration. */
+  visibility: hidden;
+  opacity: 0;
+}
+
+.nav__face .dogface {
+  width: 60px;
+  height: 60px;
+  /* Lean and hop while travelling (set by SiteNav). */
+  rotate: var(--lean, 0deg);
+  translate: 0 var(--bob, 0px);
+  transition: transform var(--t) var(--ease);
+}
+
+.nav__face:hover .dogface {
+  transform: scale(1.07);
+}
+
+.nav__face:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+/* The track the rolled-up dog travels along. Its fill runs from the dog's starting
+   point to wherever the dog is now. */
+.nav__progress {
+  --p: 0;
+  position: absolute;
+  top: calc(var(--nav-badge) / 2 - 12px);
+  left: 0;
+  right: 0;
+  z-index: 0;
+  height: 24px;
+  background: color-mix(in srgb, var(--surface) 66%, transparent);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.nav__progress-track {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--nav-badge) / 2);
+  right: calc(var(--nav-badge) / 2);
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: var(--r-pill);
+  background: rgb(var(--tint) / 0.09);
+}
+
+.nav__progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 25%, transparent), var(--accent));
+  transform: scaleX(var(--p));
+  transform-origin: left center;
+}
+
+.nav__links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: auto;
+}
+
+.nav__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  transition:
+    color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.nav__link:hover {
+  background: rgb(var(--tint) / 0.035);
+  color: var(--ink-strong);
+}
+
+.nav__link.is-active {
+  background: rgb(var(--tint) / 0.06);
+  border-color: var(--line-strong);
+  color: var(--ink-strong);
+}
+
+.nav__link.is-active::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.nav__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.nav__theme {
+  display: inline-flex;
+}
+
+.nav__external svg {
+  color: var(--ink-3);
+}
+
+.nav__toggle {
+  display: none;
+}
+
+.nav__sheet {
+  max-width: var(--content-max);
+  max-height: calc(100dvh - var(--nav-h) - var(--nav-inset) * 4);
+  margin: var(--s-2) auto 0;
+  padding: var(--s-2) var(--s-2) var(--s-3);
+  overflow-y: auto;
+  background: var(--glass-strong);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xl);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  pointer-events: auto;
+  animation: sheet-in 180ms var(--ease);
+}
+
+.nav__sheet[hidden] {
+  display: none;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.nav__sheet nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav__sheet-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 0 var(--s-3);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: var(--fs-body);
+}
+
+.nav__sheet-link.is-active {
+  color: var(--accent);
+}
+
+.nav__sheet-theme {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 0 var(--s-3);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: var(--fs-body);
+}
+
+@media (max-width: 599px) {
+  .nav__theme {
+    display: none;
+  }
+
+  .nav__sheet-theme {
+    display: flex;
+  }
+}
+
+.nav__sheet-cta {
+  width: 100%;
+  border-radius: 10px;
+  margin-top: var(--s-3);
+}
+
+/* GitHub: a text link on wide screens, the GitHub mark on narrow ones (never in the sheet). */
+.nav__gh-icon,
+.nav__cta-short {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .nav__links {
+    display: none;
+  }
+
+  .nav__external {
+    justify-content: center;
+    width: 34px;
+    padding: 0;
+  }
+
+  .nav__external-label,
+  .nav__external-arrow {
+    display: none;
+  }
+
+  .nav__gh-icon {
+    display: block;
+    color: var(--ink-2);
+  }
+
+  .nav__external:hover .nav__gh-icon {
+    color: var(--ink-strong);
+  }
+
+  .nav__toggle {
+    display: inline-grid;
+  }
+
+  .nav__actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 599px) {
+  .nav__inner {
+    gap: var(--s-3);
+  }
+
+  .nav__bar {
+    padding-left: var(--s-4);
+  }
+
+  .nav__actions {
+    gap: var(--s-1);
+  }
+
+  .nav__cta-full {
+    display: none;
+  }
+
+  .nav__cta-short {
+    display: inline;
+  }
+}
+
+@media (max-width: 359px) {
+  .nav__actions .nav__cta {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------ dashboard nav */
+
+.dashboard-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s-6);
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--s-4) var(--gutter);
+  border-bottom: 1px solid var(--line);
+}
+
+.dashboard-nav .brand a {
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.dashboard-nav .nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+  font-size: var(--fs-meta);
+}
+
+.dashboard-nav .nav-links a {
+  color: var(--ink-2);
+}
+
+.dashboard-nav .nav-links a:hover {
+  color: var(--ink-strong);
+}
+
+.dashboard-nav__theme {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------ footer */
+
+.footer {
+  position: relative;
+  z-index: 1;
+  width: min(100% - var(--gutter) * 2, var(--content-max));
+  margin: 0 auto;
+}
+
+.footer__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: var(--s-8);
+  padding: var(--s-10) 0;
+  border-top: 1px solid var(--line);
+}
+
+.footer__mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--s-3);
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.footer__brand p {
+  max-width: 40ch;
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+}
+
+.footer__email {
+  font-size: var(--fs-meta);
+}
+
+.footer__heading {
+  margin-bottom: var(--s-4);
+  color: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: var(--track-eyebrow);
+  text-transform: uppercase;
+}
+
+.footer__col ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.footer__col a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+}
+
+.footer__col a:hover {
+  color: var(--ink-strong);
+}
+
+.footer__bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-5) 0 var(--s-8);
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+.footer__bottom-links {
+  display: flex;
+  gap: var(--s-4);
+}
+
+.footer__bottom-links a {
+  color: var(--ink-3);
+}
+
+.footer__bottom-links a:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 1023px) {
+  .footer__main {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .footer__brand {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 639px) {
+  .footer__main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ------------------------------------------------------------ cursor */
+
+.has-custom-cursor,
+.has-custom-cursor * {
+  cursor: none !important;
+}
+
+.has-custom-cursor input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='submit']):not([type='button']),
+.has-custom-cursor textarea,
+.has-custom-cursor [contenteditable='true'] {
+  cursor: text !important;
+}
+
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease);
+  will-change: transform;
+}
+
+.cursor-visible .cursor-dot,
+.cursor-visible .cursor-ring {
+  opacity: 1;
+}
+
+.cursor-dot {
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--ink-strong);
+}
+
+.cursor-visible .cursor-dot[data-state='text'] {
+  opacity: 0;
+}
+
+.cursor-ring {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+}
+
+.cursor-ring__shape {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgb(var(--tint) / 0.32);
+  border-radius: 50%;
+  transition:
+    transform 160ms var(--ease),
+    border-color 160ms var(--ease),
+    opacity 160ms var(--ease);
+}
+
+.cursor-ring[data-state='interactive'] .cursor-ring__shape {
+  border-color: var(--accent-line);
+  transform: scale(1.45);
+}
+
+.cursor-ring[data-state='text'] .cursor-ring__shape {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.cursor-ring.is-pressed .cursor-ring__shape {
+  transform: scale(0.85);
+}
