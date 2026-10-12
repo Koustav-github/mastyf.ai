@@ -19,7 +19,7 @@ function logSessionFlowBackend() {
         Logger.info(`[SessionFlow] backend=${redis ? 'redis' : 'memory'}`);
     }
 }
-const FLOW_WINDOW_MS = 5 * 60 * 1000;
+const FLOW_WINDOW_MS = Number(process.env['MASTYF_AI_FLOW_WINDOW_MS']) || 2 * 60 * 1000;
 const MAX_HISTORY = 24;
 const REDIS_PREFIX = 'mcpg:flow:';
 const memoryStore = new LRUCache({
@@ -88,7 +88,11 @@ export function appendFlowEventSync(sessionKey, event) {
     event.at = event.at || now;
     const existing = getFlowHistorySync(sessionKey);
     existing.push(event);
-    memoryStore.set(sessionKey, prune(existing, now));
+    const pruned = prune(existing, now);
+    memoryStore.set(sessionKey, pruned);
+    if (isRedisConfigured()) {
+        void redisSet(sessionKey, pruned);
+    }
 }
 /** Mark that a prior tool response contained sensitive data (response-based chain). */
 export function recordSensitiveResponseAccess(sessionKey, toolName) {
@@ -98,6 +102,16 @@ export function recordSensitiveResponseAccess(sessionKey, toolName) {
         dataAccess: true,
         at: Date.now(),
     });
+}
+export function clearSessionFlow(sessionKey) {
+    memoryStore.delete(sessionKey);
+    if (isRedisConfigured()) {
+        try {
+            const redis = getSharedRedisClient();
+            void redis.del(`${REDIS_PREFIX}${sessionKey}`);
+        }
+        catch { }
+    }
 }
 export function resetSessionFlowStore() {
     memoryStore.clear();

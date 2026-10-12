@@ -279,6 +279,11 @@ export function parseToolCall(params: {
 
   const tenantId = headers['x-mastyf-tenant'] ?? defaultTenantId;
   const requestIdHeader = headers['x-request-id'] ?? headers['x-correlation-id'];
+  const sessionIdHeader =
+    headers['x-mastyf-session'] ??
+    headers['mcp-session-id'] ??
+    headers['x-session-id'] ??
+    headers['x-mastyf-user'];
 
   return {
     ok: true,
@@ -287,6 +292,7 @@ export function parseToolCall(params: {
       toolName: rpcParams.name,
       arguments: args,
       requestId: requestIdHeader ?? `agw-${String(envelope.id ?? 'anon')}`,
+      mcpSessionId: sessionIdHeader,
       // No transport-reported token count exists at an authorization boundary, so
       // this is an estimate from the argument payload. It used to be a literal 0,
       // which read as "cheap" to every consumer that reads `requestTokens`

@@ -6,6 +6,7 @@ import { snapshotAuditArguments } from '../utils/audit-args-snapshot.js';
 import { appendFlowEventSync, getFlowHistorySync, } from './session-flow-store.js';
 import { flowSessionKey } from './session-flow-guard.js';
 import { walkStringLeaves } from './arg-leaf-walker.js';
+import { classifyEgress } from './egress-classifier.js';
 const READ_TOOLS = new Set([
     'read_file',
     'read_text_file',
@@ -80,16 +81,20 @@ function argsBlob(args) {
         .map((l) => l.value)
         .join('\n');
 }
-function classifyNode(toolName, args) {
+function classifyNode(toolName, args, strictEgress = false) {
     const lower = toolName.toLowerCase();
     const blob = argsBlob(args);
+    // Argument words like "send"/"post" only count as egress when there is a destination URL.
+    const argEgressHint = EXFIL_ARG_HINTS.test(blob) && /https?:\/\//i.test(blob);
+    const rawExfil = EXFIL_TOOLS.has(lower) || EXFIL_ARG_HINTS.test(lower) || argEgressHint;
+    // A bounded GET to a well-known read-only host is not exfiltration.
+    const safeRead = rawExfil && classifyEgress(toolName, args, { strict: strictEgress }) === 'safe-read';
     return {
         toolName,
         argShapeHash: argShapeHash(args),
         sensitiveRead: READ_TOOLS.has(lower) && SENSITIVE_ARG_HINTS.test(blob),
         encodeHint: ENCODE_TOOLS.has(lower) || ENCODE_ARG_HINTS.test(blob) || ENCODE_ARG_HINTS.test(lower),
-        exfilHint: (EXFIL_TOOLS.has(lower) || EXFIL_ARG_HINTS.test(blob) || EXFIL_ARG_HINTS.test(lower))
-            && !isSafeExfilUrl(blob) && !isSafeExfilUrl(lower),
+        exfilHint: rawExfil && !safeRead && !isSafeExfilUrl(blob) && !isSafeExfilUrl(lower),
     };
 }
 export function buildSessionChainGraph(sessionKey, flow) {
@@ -101,7 +106,7 @@ export function buildSessionChainGraph(sessionKey, flow) {
                 toolName: e.toolName,
                 at: e.at,
                 argShapeHash: classified.argShapeHash,
-                sensitiveRead: classified.sensitiveRead || e.sensitiveRead || e.dataAccess,
+                sensitiveRead: classified.sensitiveRead || e.sensitiveRead,
                 encodeHint: classified.encodeHint,
                 exfilHint: classified.exfilHint,
             };
@@ -109,7 +114,7 @@ export function buildSessionChainGraph(sessionKey, flow) {
         return {
             toolName: e.toolName,
             at: e.at,
-            sensitiveRead: e.sensitiveRead || e.dataAccess,
+            sensitiveRead: e.sensitiveRead,
             encodeHint: ENCODE_ARG_HINTS.test(e.toolName),
             exfilHint: EXFIL_ARG_HINTS.test(e.toolName),
         };
@@ -164,15 +169,8 @@ export function detectChainPatterns(graph) {
                     confidence: 0.65,
                 });
             }
-            else if (slice.length >= 3 &&
-                new Set(slice.map((n) => n.toolName)).size >= 2 &&
-                (hasEncode || hasExfil)) {
-                matches.push({
-                    pattern: 'multi-step-staging',
-                    nodes: slice.map((_, idx) => i + idx),
-                    confidence: 0.6,
-                });
-            }
+            // NOTE: a read-less "3+ calls with an egress hint" heuristic used to live here. Without a
+            // confirmed sensitive read it flagged ordinary sessions (any 3rd call that sends something).
         }
     }
     const seen = new Set();
@@ -184,11 +182,21 @@ export function detectChainPatterns(graph) {
         return true;
     });
 }
-/** Evaluate cross-tool chain patterns against current session history (no recording). */
+/**
+ * Evaluate cross-tool chain patterns against current session history (no recording).
+ *
+ * Only the call being evaluated can trigger a block, and only when it is the egress step that
+ * completes a chain. Earlier suspicious history never blocks later unrelated calls, so a session
+ * recovers as soon as the agent moves on instead of staying blocked until the window expires.
+ */
 export function evaluateSessionChainGuard(ctx) {
     const key = flowSessionKey(ctx);
-    const node = classifyNode(ctx.toolName, ctx.arguments);
     const history = getFlowHistorySync(key);
+    const anySensitive = history.some((e) => e.sensitiveRead);
+    const node = classifyNode(ctx.toolName, ctx.arguments, anySensitive);
+    // Nothing to complete: a call that is not an egress step cannot finish an exfil chain.
+    if (!node.exfilHint)
+        return null;
     const provisional = [
         ...history.map((e) => {
             if (e.argumentsSnapshot && Object.keys(e.argumentsSnapshot).length) {
@@ -197,7 +205,8 @@ export function evaluateSessionChainGuard(ctx) {
                     toolName: e.toolName,
                     at: e.at,
                     argShapeHash: classified.argShapeHash,
-                    sensitiveRead: classified.sensitiveRead || e.sensitiveRead || e.dataAccess,
+                    // Confirmed sensitive reads only; a plain read/list is not evidence of intent to steal.
+                    sensitiveRead: classified.sensitiveRead || e.sensitiveRead,
                     encodeHint: classified.encodeHint,
                     exfilHint: classified.exfilHint,
                 };
@@ -205,7 +214,7 @@ export function evaluateSessionChainGuard(ctx) {
             return {
                 toolName: e.toolName,
                 at: e.at,
-                sensitiveRead: e.sensitiveRead || e.dataAccess,
+                sensitiveRead: e.sensitiveRead,
                 encodeHint: ENCODE_ARG_HINTS.test(e.toolName),
                 exfilHint: EXFIL_ARG_HINTS.test(e.toolName),
             };
@@ -227,7 +236,8 @@ export function evaluateSessionChainGuard(ctx) {
     for (let i = 1; i < provisional.length; i++) {
         graph.edges.push({ from: i - 1, to: i, kind: 'temporal' });
     }
-    const patterns = detectChainPatterns(graph);
+    const lastIdx = provisional.length - 1;
+    const patterns = detectChainPatterns(graph).filter((p) => p.nodes[p.nodes.length - 1] === lastIdx);
     if (!patterns.length)
         return null;
     const best = patterns.sort((a, b) => b.confidence - a.confidence)[0];

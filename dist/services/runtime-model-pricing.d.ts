@@ -20,14 +20,12 @@ export declare class RuntimeModelPricing {
     private lastRefresh;
     getActivePricing(): Promise<ResolvedModelPricing | null>;
     extractModelFromMessage(msg: unknown): string | null;
-    /** Map agent or client name to appropriate model */
-    resolveAgentModel(agentOrClientName?: string | null): string | null;
-    resolveForMessage(msg?: unknown, clientOrServer?: string): Promise<ResolvedModelPricing | null>;
+    resolveForMessage(msg?: unknown): Promise<ResolvedModelPricing | null>;
     resolveModelId(modelId: string): Promise<ResolvedModelPricing | null>;
     /** Resolve rates for a model without calling getActivePricing (avoids detectActivePricing ↔ resolve recursion). */
     private resolveModelIdDirect;
     computeCost(inputTokens: number, outputTokens: number, pricing: ResolvedModelPricing | null): CallCostResult;
-    computeCostForCall(inputTokens: number, outputTokens: number, msg?: unknown, clientOrServer?: string): Promise<CallCostResult>;
+    computeCostForCall(inputTokens: number, outputTokens: number, msg?: unknown): Promise<CallCostResult>;
     private readClineModelIdOnly;
     private detectActivePricing;
     private readClinePricing;

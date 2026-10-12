@@ -13,6 +13,8 @@ import {
 import { snapshotAuditArguments } from '../utils/audit-args-snapshot.js';
 import { fingerprintArguments } from './loop-anomaly-detector.js';
 import { globalSessionTaintTracker } from './difc/index.js';
+import { classifyEgress } from './egress-classifier.js';
+import { Logger } from '../utils/logger.js';
 
 export { recordSensitiveResponseAccess, resetSessionFlowStore as resetSessionFlowHistory };
 export { evaluateLoopAnomalyGuard } from './loop-anomaly-detector.js';
@@ -56,7 +58,10 @@ const EXFIL_BODY_HINTS =
 
 export function flowSessionKey(ctx: CallContext): string {
   const tenant = ctx.tenantId || process.env['MASTYF_AI_TENANT_ID'] || 'default';
-  const sub = ctx.agentIdentity?.sub || ctx.agentIdentity?.clientId || 'anon';
+  // Identity first; otherwise the MCP/transport session id so unrelated conversations on the same
+  // server do not share one pooled history (a single "anon" bucket let one agent's read poison
+  // every other agent's calls). Falls back to 'anon' when neither is available.
+  const sub = ctx.agentIdentity?.sub || ctx.agentIdentity?.clientId || ctx.sessionId || 'anon';
   return `${tenant}:${ctx.serverName}:${sub}`;
 }
 
@@ -88,7 +93,8 @@ function isExfilTool(toolName: string, args: Record<string, unknown> | undefined
   if (EXFIL_TOOL_HINTS.test(lower)) return true;
   if (!args) return false;
   const blob = JSON.stringify(args);
-  if (EXFIL_TOOL_HINTS.test(blob)) return true;
+  // Argument text alone ("send", "post", ...) is not egress: data only leaves when there is a destination.
+  if (EXFIL_TOOL_HINTS.test(blob) && /https?:\/\//i.test(blob)) return true;
   if (EXFIL_BODY_HINTS.test(blob) && /https?:\/\//i.test(blob)) return true;
   return false;
 }
@@ -137,9 +143,27 @@ export function evaluateSessionFlowGuard(ctx: CallContext): PolicyDecision | nul
   }
 
   const history = getFlowHistorySync(key);
-  const prior = history.find((e) => e.sensitiveRead || e.dataAccess);
-  if (!prior) return null;
+  // A confirmed-sensitive read (credential/system path, DLP hit) is strong evidence; a plain file read
+  // is not, because ordinary agent work reads files and then calls APIs.
+  const sensitivePrior = history.find((e) => e.sensitiveRead);
+  const dataPrior = history.find((e) => e.dataAccess);
+  if (!sensitivePrior && !dataPrior) return null;
 
+  const egress = classifyEgress(ctx.toolName, ctx.arguments, { strict: !!sensitivePrior });
+  // Bounded GET to a well-known read-only API cannot carry meaningful data out.
+  if (egress === 'safe-read') return null;
+
+  // Plain read followed by a message to a person/channel (no URL destination): allow but record it.
+  // Content scanning (secrets-in-args, response DLP, DIFC taint) still applies to the call itself.
+  // Set MASTYF_AI_FLOW_STRICT_MESSAGING=true to restore the old block.
+  if (!sensitivePrior && egress === 'messaging' && process.env['MASTYF_AI_FLOW_STRICT_MESSAGING'] !== 'true') {
+    Logger.warn(
+      `[SessionFlow] flagged-for-review: '${ctx.toolName}' after data access '${dataPrior?.toolName}' (session ${key})`,
+    );
+    return null;
+  }
+
+  const prior = sensitivePrior ?? dataPrior!;
   return {
     action: 'block',
     rule: 'session-flow-exfil-chain',

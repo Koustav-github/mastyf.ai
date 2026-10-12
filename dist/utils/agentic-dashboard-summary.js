@@ -171,7 +171,7 @@ export async function buildAgenticDashboardSummary(db, container, tenantId, wind
             'No proxy traffic in selected window — run MCP tools through Mastyf AI proxy';
     }
     return {
-        available: true,
+        available: agenticEnabled,
         agenticEnabled,
         hasProxyHistory,
         windowDays,

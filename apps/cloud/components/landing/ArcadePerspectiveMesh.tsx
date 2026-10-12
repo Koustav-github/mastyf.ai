@@ -13,15 +13,15 @@ export function ArcadePerspectiveMesh() {
       >
         <defs>
           <linearGradient id="arcade-grid-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.08" />
-            <stop offset="40%" stopColor="#fbbf24" stopOpacity="0.18" />
-            <stop offset="70%" stopColor="#c3ff00" stopOpacity="0.07" />
-            <stop offset="100%" stopColor="#ff20bc" stopOpacity="0.12" />
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.06" />
+            <stop offset="40%" stopColor="#f59e0b" stopOpacity="0.12" />
+            <stop offset="70%" stopColor="#64748b" stopOpacity="0.06" />
+            <stop offset="100%" stopColor="#080c16" stopOpacity="0.02" />
           </linearGradient>
-          <radialGradient id="arcade-center-glow" cx="50%" cy="40%" r="50%">
-            <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.22" />
-            <stop offset="50%" stopColor="#38bdf8" stopOpacity="0.07" />
-            <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+          <radialGradient id="arcade-center-glow" cx="50%" cy="30%" r="50%">
+            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.08" />
+            <stop offset="60%" stopColor="#06b6d4" stopOpacity="0.03" />
+            <stop offset="100%" stopColor="#050508" stopOpacity="0" />
           </radialGradient>
         </defs>
 

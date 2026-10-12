@@ -69,16 +69,11 @@ export class SandboxTierEnforcer {
         Logger.debug(`[Sandbox] RL/reputation tier sync complete (${servers.size} servers)`);
     }
     ensureDefaultTierForServer(serverName, certified) {
-        const scope = { scopeType: 'server', scopeId: serverName };
-        const force = process.env.MASTYF_AI_SANDBOX_TIER_FORCE;
-        if (force === 'shadow' || force === 'redact' || force === 'allow') {
-            this.setTier(scope, force);
-            return force;
-        }
         if (certified)
-            return this.getTier(scope);
+            return this.getTier({ scopeType: 'server', scopeId: serverName });
         const envTier = process.env.MASTYF_AI_DEFAULT_SANDBOX_TIER;
         const tier = envTier ?? 'shadow';
+        const scope = { scopeType: 'server', scopeId: serverName };
         if (this.getTier(scope) === 'allow') {
             this.setTier(scope, tier);
         }

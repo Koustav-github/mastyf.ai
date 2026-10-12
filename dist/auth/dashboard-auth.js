@@ -56,13 +56,7 @@ export class DashboardAuth {
                 ? process.env['DASHBOARD_ALLOWED_ORIGINS'].split(',').map(s => s.trim())
                 : (process.env['MASTYF_AI_ENTERPRISE_MODE'] === 'true'
                     ? ['https://localhost:4000']
-                    : [
-                        'http://localhost:4000',
-                        'http://localhost:3000',
-                        'http://127.0.0.1:4000',
-                        'http://localhost:14000',
-                        'http://127.0.0.1:14000',
-                    ])),
+                    : ['http://localhost:4000', 'http://localhost:3000', 'http://127.0.0.1:4000'])),
             maxLoginAttemptsPerMinute: config?.maxLoginAttemptsPerMinute ?? 5,
         };
         const sessionTtlMs = this.config.sessionTtlSeconds * 1000;

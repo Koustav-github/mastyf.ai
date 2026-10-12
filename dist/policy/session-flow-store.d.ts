@@ -16,6 +16,7 @@ export declare function appendFlowEvent(sessionKey: string, event: FlowEvent): P
 export declare function appendFlowEventSync(sessionKey: string, event: FlowEvent): void;
 /** Mark that a prior tool response contained sensitive data (response-based chain). */
 export declare function recordSensitiveResponseAccess(sessionKey: string, toolName: string): void;
+export declare function clearSessionFlow(sessionKey: string): void;
 export declare function resetSessionFlowStore(): void;
 /** Alias for harness / corpus parity. */
 export declare const resetSessionFlowHistory: typeof resetSessionFlowStore;

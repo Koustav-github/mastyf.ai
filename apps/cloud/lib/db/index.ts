@@ -9,12 +9,14 @@ let dbInstance: Db | null = null;
 
 /** True when DATABASE_URL is configured for the cloud control plane. */
 export function cloudDbAvailable(): boolean {
-  return Boolean(process.env.DATABASE_URL?.trim());
+  return Boolean(process.env.DATABASE_URL?.trim() || process.env.NODE_ENV !== 'production');
 }
 
 export function getDb(): Db {
   if (dbInstance) return dbInstance;
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString =
+    process.env.DATABASE_URL?.trim() ||
+    (process.env.NODE_ENV !== 'production' ? 'postgres://rudraneeldas@localhost:5432/mastyf_cloud' : '');
   if (!connectionString) {
     throw new Error('DATABASE_URL is required for the cloud control plane');
   }

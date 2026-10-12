@@ -2,9 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ShieldAlert, Terminal, Copy, Check, AlertTriangle, ArrowRight } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { ShieldAlert, Terminal, Copy, Check, AlertTriangle, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { AnimatedNumber } from '@/components/ui/animated-number';
 
@@ -26,8 +24,8 @@ const PRESETS: EnvironmentPreset[] = [
   {
     id: 'claude-code',
     name: 'Claude Code',
-    subtitle: 'Anthropic CLI & Terminal Development Agent',
-    category: 'DEVELOPER WORKSPACE AGENT',
+    subtitle: 'Anthropic CLI & Terminal Agent',
+    category: 'DEVELOPER WORKSPACE',
     toolsDetected: 17,
     highImpactCapabilities: 3,
     unrestrictedDestinations: 2,
@@ -49,7 +47,7 @@ const PRESETS: EnvironmentPreset[] = [
   {
     id: 'cursor',
     name: 'Cursor Composer',
-    subtitle: 'IDE Multi-File Code Generation & Terminal Agent',
+    subtitle: 'IDE Multi-File Code Generation Agent',
     category: 'IDE EMBEDDED AGENT',
     toolsDetected: 12,
     highImpactCapabilities: 2,
@@ -71,7 +69,7 @@ const PRESETS: EnvironmentPreset[] = [
     id: 'mcp-cluster',
     name: 'Production MCP Cluster',
     subtitle: 'Filesystem, PostgreSQL, GitHub & Internal Tool Servers',
-    category: 'MULTI-TRANSPORT TOOL FABRIC',
+    category: 'TOOL PROTOCOL CLUSTER',
     toolsDetected: 26,
     highImpactCapabilities: 5,
     unrestrictedDestinations: 3,
@@ -91,8 +89,8 @@ const PRESETS: EnvironmentPreset[] = [
   {
     id: 'production-agent',
     name: 'Production Cloud Agent',
-    subtitle: 'Autonomous Customer Service & SRE Operational Agent',
-    category: 'AUTONOMOUS FLEET AGENT',
+    subtitle: 'Autonomous Customer Service & SRE Agent',
+    category: 'AUTONOMOUS FLEET',
     toolsDetected: 19,
     highImpactCapabilities: 4,
     unrestrictedDestinations: 2,
@@ -112,7 +110,7 @@ const PRESETS: EnvironmentPreset[] = [
   {
     id: 'custom',
     name: 'Custom Agent Stack',
-    subtitle: 'LangGraph, AutoGen, CrewAI, or Custom Python/TypeScript Agent',
+    subtitle: 'LangGraph, AutoGen, CrewAI, or Python/TS Stack',
     category: 'CUSTOM ORCHESTRATION',
     toolsDetected: 14,
     highImpactCapabilities: 3,
@@ -145,164 +143,183 @@ export function AgentSecurityCheck() {
   };
 
   return (
-    <section className="agent-check-section" id="check-agent">
-      <div className="section-container">
-        {/* Section Title */}
-        <div className="section-header">
-          <div className="section-tag">FREE AGENT SECURITY CHECK</div>
-          <h2 className="section-title">
-            See what your AI can actually do.
-          </h2>
-          <p className="section-subtitle">
-            Autonomous agents connect to terminal tools, file systems, databases, and APIs.
-            Choose an environment below to inspect its unmanaged capabilities and attack surface.
-          </p>
+    <section className="relative py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto" id="check-agent">
+      {/* Section Header */}
+      <div className="text-center max-w-3xl mx-auto mb-14">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-400 text-xs font-mono font-semibold uppercase tracking-wider mb-4">
+          Free Agent Exposure Scan
         </div>
+        <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          See what your AI can actually do.
+        </h2>
+        <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
+          Autonomous agents connect to terminal tools, filesystems, databases, and APIs.
+          Select an environment to inspect its unmanaged capabilities and attack surface.
+        </p>
+      </div>
 
-        {/* Environment Selector Strip */}
-        <div className="env-selector-tabs">
-          {PRESETS.map((p) => (
+      {/* Environment Selector Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 justify-start lg:justify-center">
+        {PRESETS.map((p) => {
+          const isSelected = selectedPresetId === p.id;
+          return (
             <button
               key={p.id}
               type="button"
               onClick={() => setSelectedPresetId(p.id)}
-              className={`env-tab-button ${selectedPresetId === p.id ? 'active' : ''}`}
+              className={`flex flex-col px-4 py-2.5 rounded-2xl border text-left shrink-0 transition-all ${
+                isSelected
+                  ? 'bg-white/[0.1] border-amber-400/40 text-white shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/30'
+                  : 'bg-[#080d1a]/80 border-white/[0.06] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+              }`}
             >
-              <div className="env-tab-category">{p.category}</div>
-              <div className="env-tab-name">{p.name}</div>
+              <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400 font-bold mb-0.5">
+                {p.category}
+              </span>
+              <span className="text-xs font-bold text-white">{p.name}</span>
             </button>
-          ))}
+          );
+        })}
+      </div>
+
+      {/* Audit Dossier Container */}
+      <div className="relative rounded-3xl bg-[#080d1a]/95 backdrop-blur-2xl border border-white/[0.1] p-6 sm:p-8 shadow-[0_30px_90px_rgba(0,0,0,0.8)] overflow-hidden">
+        <BorderBeam size={320} duration={10} borderWidth={1.5} colorFrom="#f59e0b" colorTo="#06b6d4" />
+
+        {/* Top Status Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.08] mb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h3 className="text-2xl font-bold text-white">{activePreset.name}</h3>
+              <span className="text-xs font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                Exposure Profile
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">{activePreset.subtitle}</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/[0.08]">
+              Simulated Baseline Data
+            </span>
+          </div>
         </div>
 
-        {/* Audit Results Container */}
-        <div className="agent-audit-dossier relative overflow-hidden">
-          {/* Subtle Border Beam for high visual appeal */}
-          <BorderBeam
-            size={360}
-            duration={12}
-            borderWidth={1.5}
-            colorFrom="#06b6d4"
-            colorTo="#f59e0b"
-          />
-
-          {/* Header & Verification Scope Badges */}
-          <div className="dossier-top-bar">
-            <div className="dossier-identity">
-              <span className="dossier-preset-name">{activePreset.name}</span>
-              <span className="dossier-subtitle">{activePreset.subtitle}</span>
+        {/* 5 Core Metric Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
+          <div className="p-4 rounded-2xl bg-black/40 border border-white/[0.06] text-center">
+            <div className="text-2xl sm:text-3xl font-mono font-extrabold text-white mb-1">
+              <AnimatedNumber value={activePreset.toolsDetected} />
             </div>
+            <div className="text-xs font-semibold text-slate-300 mb-0.5">Tools Detected</div>
+            <div className="text-[10px] text-slate-400">Execution sinks</div>
+          </div>
 
-            {/* Strict Scope Labeling to Eliminate Confusion */}
-            <div className="dossier-badges-group">
-              <Badge variant="warning" className="text-xs">
-                SIMULATED - DEMO DATA
-              </Badge>
-              <Badge variant="outline" className="text-xs font-mono text-cyan-300 border-cyan-500/30 bg-cyan-500/5">
-                Run Actual Scan: npx @mastyf/gateway audit
-              </Badge>
+          <div className="p-4 rounded-2xl bg-amber-500/[0.08] border border-amber-500/25 text-center">
+            <div className="text-2xl sm:text-3xl font-mono font-extrabold text-amber-400 mb-1">
+              <AnimatedNumber value={activePreset.highImpactCapabilities} />
+            </div>
+            <div className="text-xs font-semibold text-amber-300 mb-0.5">High-Impact Sinks</div>
+            <div className="text-[10px] text-amber-400/70">Shell, write, mutate</div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-500/[0.08] border border-amber-500/25 text-center">
+            <div className="text-2xl sm:text-3xl font-mono font-extrabold text-amber-400 mb-1">
+              <AnimatedNumber value={activePreset.unrestrictedDestinations} />
+            </div>
+            <div className="text-xs font-semibold text-amber-300 mb-0.5">Egress Routes</div>
+            <div className="text-[10px] text-amber-400/70">Unrestricted sockets</div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-rose-500/[0.08] border border-rose-500/25 text-center">
+            <div className="text-2xl sm:text-3xl font-mono font-extrabold text-rose-400 mb-1">
+              <AnimatedNumber value={activePreset.credentialPaths} />
+            </div>
+            <div className="text-xs font-semibold text-rose-300 mb-0.5">Secret Paths</div>
+            <div className="text-[10px] text-rose-400/70">Ambient environment</div>
+          </div>
+
+          <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-rose-500/[0.08] border border-rose-500/25 text-center">
+            <div className="text-2xl sm:text-3xl font-mono font-extrabold text-rose-400 mb-1">
+              <AnimatedNumber value={activePreset.unmanagedExecutionPolicies} />
+            </div>
+            <div className="text-xs font-semibold text-rose-300 mb-0.5">Missing Policies</div>
+            <div className="text-[10px] text-rose-400/70">No CBAC rules</div>
+          </div>
+        </div>
+
+        {/* Two-Column Findings & Recommendations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Findings */}
+          <div className="p-5 rounded-2xl bg-black/40 border border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldAlert className="w-4 h-4 text-rose-400" />
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                Observed Exposure Vectors
+              </h4>
+            </div>
+            <div className="space-y-2.5">
+              {activePreset.auditFindings.map((finding, idx) => (
+                <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0 mt-1.5" />
+                  <span className="leading-relaxed">{finding}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="dossier-disclaimer-box">
-            <strong>Simulation Notice:</strong> This interactive view displays the typical capability inventory
-            and vulnerability profile observed in default {activePreset.name} installations. For a real, non-simulated
-            scan of your actual local environment, execute the CLI audit command below.
-          </div>
-
-          {/* 5 Core Metric Cards with Animated Countups */}
-          <div className="dossier-metrics-row">
-            <div className="dossier-metric-card">
-              <span className="metric-count">
-                <AnimatedNumber value={activePreset.toolsDetected} />
-              </span>
-              <span className="metric-title">Tools Detected</span>
-              <span className="metric-context">Available execution sinks</span>
+          {/* Recommendations */}
+          <div className="p-5 rounded-2xl bg-black/40 border border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                Mastyf Defense Remediations
+              </h4>
             </div>
-
-            <div className="dossier-metric-card metric-card-warn">
-              <span className="metric-count count-warn">
-                <AnimatedNumber value={activePreset.highImpactCapabilities} />
-              </span>
-              <span className="metric-title">High-Impact Capabilities</span>
-              <span className="metric-context">Shell, write, or mutation</span>
-            </div>
-
-            <div className="dossier-metric-card metric-card-warn">
-              <span className="metric-count count-warn">
-                <AnimatedNumber value={activePreset.unrestrictedDestinations} />
-              </span>
-              <span className="metric-title">Unrestricted Destinations</span>
-              <span className="metric-context">Direct network socket egress</span>
-            </div>
-
-            <div className="dossier-metric-card metric-card-warn">
-              <span className="metric-count count-warn">
-                <AnimatedNumber value={activePreset.credentialPaths} />
-              </span>
-              <span className="metric-title">Credential Exposure Paths</span>
-              <span className="metric-context">Ambient environment secrets</span>
-            </div>
-
-            <div className="dossier-metric-card metric-card-danger">
-              <span className="metric-count count-danger">
-                <AnimatedNumber value={activePreset.unmanagedExecutionPolicies} />
-              </span>
-              <span className="metric-title">Lacking Execution Policy</span>
-              <span className="metric-context">No runtime authorization layer</span>
+            <div className="space-y-2.5">
+              {activePreset.recommendations.map((rec, idx) => (
+                <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{rec}</span>
+                </div>
+              ))}
             </div>
           </div>
+        </div>
 
-          {/* Detailed Findings & Recommendations Two-Column Grid */}
-          <div className="dossier-detail-grid">
-            <div className="detail-col detail-col-findings">
-              <div className="detail-col-header">
-                <span className="col-status-tag tag-warning">EXPOSURE FINDINGS</span>
-                <h4>Observed Risk Surfaces</h4>
+        {/* Live CLI Scan Terminal Box */}
+        <div className="rounded-2xl bg-[#04060d] border border-white/[0.08] p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-400/10 text-amber-400">
+              <Terminal className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-white mb-0.5">
+                Scan your real machine in under 30 seconds
               </div>
-              <ul className="dossier-list findings-list">
-                {activePreset.auditFindings.map((finding, idx) => (
-                  <li key={idx}>
-                    <span className="list-icon icon-warn">[!]</span>
-                    <span className="list-text">{finding}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="detail-col detail-col-recommendations">
-              <div className="detail-col-header">
-                <span className="col-status-tag tag-success">MASTYF ENFORCEMENT</span>
-                <h4>Recommended Controls</h4>
-              </div>
-              <ul className="dossier-list recommendations-list">
-                {activePreset.recommendations.map((rec, idx) => (
-                  <li key={idx}>
-                    <span className="list-icon icon-pass">[+]</span>
-                    <span className="list-text">{rec}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Action Footer */}
-          <div className="dossier-action-footer">
-            <div className="cli-quickrun-block">
-              <span className="cli-label">Run actual audit on your local agent:</span>
-              <div className="cli-command-box">
-                <code>npx @mastyf/gateway audit --local</code>
-                <button type="button" onClick={handleCopyCLI} className="btn-copy-command">
-                  {copiedCLI ? 'Copied Command!' : 'Copy Command'}
-                </button>
+              <div className="font-mono text-xs text-cyan-300 select-all">
+                $ npx @mastyf/gateway audit --local
               </div>
             </div>
-
-            <div className="action-buttons-group">
-              <Link href="#deploy" className="btn-dominant-hero">
-                Secure This Agent with Mastyf -&gt;
-              </Link>
-            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleCopyCLI}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.14] text-white border border-white/[0.12] transition-colors"
+          >
+            {copiedCLI ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400">Copied Command</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-slate-400" />
+                <span>Copy Command</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </section>

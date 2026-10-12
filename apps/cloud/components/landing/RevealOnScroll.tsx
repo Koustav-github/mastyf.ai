@@ -1,25 +1,29 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import React, { useEffect, useRef, useState, ReactNode } from 'react';
 
-type MotionMode = 'section' | 'tab' | 'architecture' | 'cta' | 'flow';
-
-type Props = {
+interface RevealOnScrollProps {
   children: ReactNode;
   className?: string;
-  delay?: number;
-  mode?: MotionMode;
-};
+  delay?: number; // ms delay before animation starts
+  direction?: 'up' | 'down' | 'left' | 'right' | 'none';
+  once?: boolean;
+  threshold?: number;
+  mode?: string;
+}
 
-const MODE_CLASS: Record<MotionMode, string> = {
-  section: 'reveal-section',
-  tab: 'reveal-tab',
-  architecture: 'reveal-arch',
-  cta: 'reveal-cta',
-  flow: 'reveal-flow',
-};
-
-export function RevealOnScroll({ children, className = '', delay = 0, mode = 'section' }: Props) {
+/**
+ * RevealOnScroll — wraps children and animates them into view using IntersectionObserver.
+ * Supports directional entrance, stagger delay, and repeat/once modes.
+ */
+export function RevealOnScroll({
+  children,
+  className = '',
+  delay = 0,
+  direction = 'up',
+  once = true,
+  threshold = 0.1,
+}: RevealOnScrollProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -29,27 +33,75 @@ export function RevealOnScroll({ children, className = '', delay = 0, mode = 'se
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
+        if (entry.isIntersecting) {
           setVisible(true);
-          observer.disconnect();
+          if (once) observer.disconnect();
+        } else if (!once) {
+          setVisible(false);
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' },
+      { threshold }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [once, threshold]);
 
-  const style = delay > 0 ? { transitionDelay: `${delay}ms` } : undefined;
+  const transforms: Record<string, string> = {
+    up: 'translateY(24px)',
+    down: 'translateY(-24px)',
+    left: 'translateX(24px)',
+    right: 'translateX(-24px)',
+    none: 'none',
+  };
 
   return (
     <div
       ref={ref}
-      className={`reveal ${MODE_CLASS[mode]}${visible ? ' reveal-visible' : ''} ${className}`.trim()}
-      style={style}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translate(0,0)' : transforms[direction],
+        transition: `opacity 0.5s ease ${delay}ms, transform 0.5s cubic-bezier(0.22,1,0.36,1) ${delay}ms`,
+        willChange: 'opacity, transform',
+      }}
     >
       {children}
+    </div>
+  );
+}
+
+/**
+ * StaggerReveal — wraps children and reveals each child with a staggered delay.
+ */
+export function StaggerReveal({
+  children,
+  className = '',
+  staggerMs = 80,
+  baseDelay = 0,
+  direction = 'up',
+  threshold = 0.08,
+}: {
+  children: ReactNode;
+  className?: string;
+  staggerMs?: number;
+  baseDelay?: number;
+  direction?: 'up' | 'down' | 'left' | 'right' | 'none';
+  threshold?: number;
+}) {
+  const items = React.Children.toArray(children);
+  return (
+    <div className={className}>
+      {items.map((child, i) => (
+        <RevealOnScroll
+          key={i}
+          delay={baseDelay + i * staggerMs}
+          direction={direction}
+          threshold={threshold}
+        >
+          {child}
+        </RevealOnScroll>
+      ))}
     </div>
   );
 }

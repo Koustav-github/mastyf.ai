@@ -175,37 +175,6 @@ export function permissionForRoute(method, url) {
         return m === 'GET' ? 'ai' : 'ai';
     if (path === '/api/logout')
         return 'read';
-    // Gateway / fleet mutate surfaces — require policy_mutate when auth is on (Phase 5.4).
-    if (path.startsWith('/api/gateway/')) {
-        if (m === 'GET' || m === 'HEAD')
-            return 'read';
-        const mutateSuffixes = [
-            '/protect',
-            '/unprotect',
-            '/lockdown',
-            '/lockdown/release',
-            '/escalation/resolve',
-            '/policy/activate',
-            '/self-test',
-            '/threat-lab/from-receipt',
-            '/threat-lab/from-receipt/review',
-            '/threat-lab/corpus-replay',
-            '/incidents',
-            '/decide',
-            '/scan',
-        ];
-        if (mutateSuffixes.some((s) => path === `/api/gateway${s}` || path.endsWith(s))) {
-            return 'policy_mutate';
-        }
-        if (m === 'POST' || m === 'PUT' || m === 'PATCH' || m === 'DELETE')
-            return 'policy_mutate';
-        return 'read';
-    }
-    if (path.startsWith('/api/fleet/')) {
-        if (m === 'GET' || m === 'HEAD')
-            return 'read';
-        return 'policy_mutate';
-    }
     return null;
 }
 export function canAccessRoute(roles, method, url) {
@@ -275,44 +244,8 @@ export function resolveRolesForApiKey(apiKey, mapping) {
         if (apiKey.startsWith(prefix))
             return [role];
     }
-    // The provisioned laptop/appliance key (DASHBOARD_API_KEY) is the operator
-    // sitting at Shield. Viewer would 403 canary, grant, and lockdown POSTs.
-    const primary = process.env['DASHBOARD_API_KEY']?.trim();
-    if (primary && apiKey === primary) {
-        const primaryRole = normalizeDashboardRole(process.env['MASTYF_AI_DASHBOARD_PRIMARY_ROLE'] || 'operator');
-        return primaryRole ? [primaryRole] : ['operator'];
-    }
     const defaultRole = normalizeDashboardRole(process.env['MASTYF_AI_DASHBOARD_DEFAULT_ROLE'] || 'viewer');
     return defaultRole ? [defaultRole] : ['viewer'];
-}
-/** True when `presented` is the provisioned appliance key or an explicit mapped key. */
-export function isKnownDashboardApiKey(presented) {
-    const key = presented.trim();
-    if (!key)
-        return false;
-    const primary = process.env['DASHBOARD_API_KEY']?.trim();
-    if (primary && key === primary)
-        return true;
-    const map = parseDashboardRolesEnv();
-    if (map.has(key))
-        return true;
-    const jsonKeys = process.env['DASHBOARD_API_KEYS_JSON'];
-    if (!jsonKeys?.trim())
-        return false;
-    try {
-        const obj = JSON.parse(jsonKeys);
-        for (const compound of Object.keys(obj)) {
-            const parts = compound.split(':');
-            if (parts.length >= 3 && parts.slice(2).join(':') === key)
-                return true;
-            if (compound === key)
-                return true;
-        }
-    }
-    catch {
-        return false;
-    }
-    return false;
 }
 /** Map IdP group claim to dashboard roles via MASTYF_AI_DASHBOARD_SSO_ROLE_MAP JSON. */
 export function resolveSsoRolesFromClaims(claims) {

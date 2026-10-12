@@ -36,12 +36,6 @@ export declare class McpProxyServer {
     private rugPullState;
     /** Pending tools/list JSON-RPC ids awaiting correlated responses. */
     private pendingToolsListIds;
-    /**
-     * Internal resources/list ids issued by the proxy after tools/list —
-     * responses are persisted for AI Access and never forwarded to the client.
-     */
-    private pendingInternalResourceListIds;
-    private resourcesListIssued;
     private mcpSessionId;
     private mcpAgentId;
     private requestTimeoutMs;
@@ -55,11 +49,6 @@ export declare class McpProxyServer {
     private spawnChild;
     get stdin(): NodeJS.WritableStream | null;
     private setupStdout;
-    /**
-     * After tools/list, issue an internal resources/list so AI Access can show
-     * a live inventory without inventing URIs. Response is not forwarded to clients.
-     */
-    private issueProactiveResourcesList;
     private handleStdoutLine;
     private setupStderr;
     private sendError;

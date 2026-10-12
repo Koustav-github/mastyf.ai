@@ -200,54 +200,6 @@ export async function startSocApiServer(port = 4040) {
         }
         next();
     });
-    // ── Gateway BFF (/api/gateway/*) ───────────────────────────────────────────
-    // Next.js rewrites /api/* here in `next dev`. Without this mount, decide/scan
-    // 404 with "Gateway API route not found" when the rewrite target is soc-api
-    // instead of dashboard-server. Control token stays server-side (same as
-    // dashboard-server). Canonical local path remains `pnpm dashboard:proxy`.
-    app.use(async (req, res, next) => {
-        if (!req.path.startsWith('/api/gateway'))
-            return next();
-        try {
-            const { handleGatewayApiRoutes } = await import('./dashboard/gateway-routes.js');
-            const handled = await handleGatewayApiRoutes({
-                url: req.originalUrl || req.url || req.path,
-                method: req.method || 'GET',
-                req: req,
-                res: res,
-                writeJson: (r, status, body) => {
-                    if (r.headersSent)
-                        return;
-                    r.status(status).json(body);
-                },
-                readBody: async () => {
-                    if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
-                        return req.body;
-                    }
-                    return {};
-                },
-                setCors: () => {
-                    /* CORS headers already applied above */
-                },
-            });
-            if (!handled && !res.headersSent) {
-                res.status(404).json({
-                    error: 'Gateway API route not found',
-                    path: req.path,
-                    hint: 'Run `pnpm dashboard:proxy` or ensure this process mounts handleGatewayApiRoutes',
-                });
-            }
-        }
-        catch (err) {
-            if (!res.headersSent) {
-                res.status(502).json({
-                    error: 'Gateway BFF unavailable on this host',
-                    detail: err instanceof Error ? err.message : String(err),
-                    hint: 'Run `pnpm dashboard:proxy` (canonical) or check MASTYF gateway control plane',
-                });
-            }
-        }
-    });
     // ── Auth/RBAC wiring ──────────────────────────────────────────────────────
     // Resolve req.authUser from the session cookie (if any) before any route
     // handler runs, then register every auth/user/group/role/session/audit

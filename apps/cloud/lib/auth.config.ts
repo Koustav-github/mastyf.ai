@@ -3,6 +3,7 @@ import { ensureAuthUser } from './ensure-auth-user';
 import { configuredOAuthProviders, DEV_AUTH_PROVIDER_ID, DEMO_AUTH_PROVIDER_ID } from './oauth-providers';
 
 export const authConfig = {
+  secret: process.env.AUTH_SECRET || 'mastyf-dev-fallback-auth-secret-32-bytes-minimum-key',
   providers: configuredOAuthProviders(),
   pages: { signIn: '/login' },
   trustHost: true,

@@ -4,8 +4,6 @@ import * as Metrics from './metrics.js';
 import { broadcastDashboardEvent, emitFlowStep } from './dashboard-events.js';
 import { enqueueAuditWrite, initAuditWriteQueue } from '../database/audit-write-queue.js';
 import { commitSpend, releaseReservedSpend } from '../services/unified-spend-pool.js';
-import { isGatewayLedgerEnabled, mintReceiptForCall } from '../gateway-ledger/execution-ledger.js';
-import { StructuredLogger } from '../utils/structured-logger.js';
 const MAX_BLOCK_REASON_CHARS = parseInt(process.env.MASTYF_AI_AUDIT_MAX_BLOCK_REASON_CHARS || '4096', 10);
 /** Trim oversized audit fields before queue/DB write (L-2). */
 export function compactCallRecordForPersistence(record) {
@@ -80,15 +78,6 @@ export async function persistCallRecord(db, record, msg, serverEnv, serverArgs) 
     enqueueAuditWrite({ record: enriched, costRecord: costJob });
     if (enriched.costUsd && enriched.costUsd > 0) {
         void commitSpendFromRecord(enriched);
-    }
-    // Mint a gateway-ledger receipt for every mediated call so the security
-    // center / gateway control API read live traffic from the same inline proxy.
-    if (isGatewayLedgerEnabled()) {
-        void mintReceiptForCall(enriched, msg).then((minted) => {
-            if (!minted) {
-                StructuredLogger.warn('[gateway-ledger] receipt not minted for call');
-            }
-        });
     }
     broadcastDashboardEvent({
         type: enriched.blocked ? 'policy-block' : 'audit:decision',

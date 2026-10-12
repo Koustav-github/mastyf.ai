@@ -17,9 +17,6 @@ export type LicenseClientConfig = {
     refreshSeconds: number;
     graceSeconds: number;
     fetchFn?: typeof fetch;
-    offlineLicenseKey?: string;
-    offlinePublicKey?: string;
-    machineId?: string;
 };
 export declare function isCloudLicenseKey(key: string): boolean;
 export declare function loadLicenseClientConfig(): LicenseClientConfig;
@@ -44,9 +41,6 @@ export declare class LicenseClient {
     getTenantSlug(): string | undefined;
     getCloudBillingUrl(): string | undefined;
     isEnabled(): boolean;
-    hasOfflineLicense(): boolean;
-    applyLemonLicense(): boolean;
-    applyOfflineLicense(): boolean;
     requiresLicense(): boolean;
     matchesLicenseKey(key: string): boolean;
     private isWithinGrace;

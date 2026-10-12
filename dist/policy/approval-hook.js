@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { consumeApprovedMatch, findPendingMatch, persistApprovalRequest, } from '../audit/approval-store.js';
+import { persistApprovalRequest } from '../audit/approval-store.js';
 import { peekMatchingAllowGrant } from '../gateway-ledger/operator-grant-peek.js';
 export function createApprovalHook(opts) {
     const toolSet = new Set(opts.matchTools.map(t => t.toLowerCase()));
@@ -19,28 +19,6 @@ export function createApprovalHook(opts) {
                 return {
                     allowed: true,
                     reason: `Operator grant ${grant.grant_id} (consumed at /v1/decide)`,
-                };
-            }
-            const approved = consumeApprovedMatch({
-                toolName: context.tool.toolName || '',
-                serverName: context.tool.serverName || '',
-                tenantId: context.tenantId,
-            });
-            if (approved) {
-                return {
-                    allowed: true,
-                    reason: `Local approval ${approved.approvalId} consumed (single-use)`,
-                };
-            }
-            const pending = findPendingMatch({
-                toolName: context.tool.toolName || '',
-                serverName: context.tool.serverName || '',
-                tenantId: context.tenantId,
-            });
-            if (pending) {
-                return {
-                    allowed: false,
-                    reason: `Approval required — ID: ${pending.approvalId}. Use "mastyf-ai approve ${pending.approvalId}" to allow or wait ${opts.timeoutSeconds}s for auto-deny.`,
                 };
             }
             const approvalId = randomUUID();

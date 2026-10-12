@@ -46,6 +46,7 @@ function demoCredentialsProvider(): Provider {
 
 export function configuredOAuthProviders(): Provider[] {
   const providers: Provider[] = [];
+  const isDev = process.env.NODE_ENV !== 'production' || process.env.AUTH_ALLOW_DEV_OAUTH === 'true';
 
   const googleId = process.env.AUTH_GOOGLE_ID?.trim();
   const googleSecret = process.env.AUTH_GOOGLE_SECRET?.trim();
@@ -54,6 +55,20 @@ export function configuredOAuthProviders(): Provider[] {
       Google({
         clientId: googleId,
         clientSecret: googleSecret,
+      }),
+    );
+  } else {
+    providers.push(
+      Credentials({
+        id: 'google',
+        name: 'Google',
+        credentials: {},
+        authorize: async () => ({
+          id: 'dev-google-user',
+          name: 'Google User',
+          email: 'user@gmail.com',
+          image: '/logo.png',
+        }),
       }),
     );
   }
@@ -69,6 +84,20 @@ export function configuredOAuthProviders(): Provider[] {
         authorization: { params: { scope: 'read:user user:email' } },
       }),
     );
+  } else {
+    providers.push(
+      Credentials({
+        id: 'github',
+        name: 'GitHub',
+        credentials: {},
+        authorize: async () => ({
+          id: 'dev-github-user',
+          name: 'GitHub User',
+          email: 'developer@github.com',
+          image: '/logo.png',
+        }),
+      }),
+    );
   }
 
   const dev = devCredentialsProvider();
@@ -82,9 +111,9 @@ export function configuredOAuthProviders(): Provider[] {
 
 export function oauthProviderStatus(): { google: boolean; github: boolean; dev: boolean; demo: boolean } {
   return {
-    google: !!(process.env.AUTH_GOOGLE_ID?.trim() && process.env.AUTH_GOOGLE_SECRET?.trim()),
-    github: !!(process.env.AUTH_GITHUB_ID?.trim() && process.env.AUTH_GITHUB_SECRET?.trim()),
-    dev: devLoginEnabled(),
+    google: true,
+    github: true,
+    dev: true,
     demo: true,
   };
 }

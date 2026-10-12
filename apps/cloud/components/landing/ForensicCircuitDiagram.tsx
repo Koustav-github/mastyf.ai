@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import { GITHUB_REPO_URL } from '@/lib/github-links';
 import { HF_MODEL_URL } from '@/lib/product-links';
+import { Shield, Cpu, Activity, Lock, ArrowRight, Zap, CheckCircle2, ChevronRight, ExternalLink } from 'lucide-react';
 
 interface Gate {
   id: number;
@@ -11,7 +12,6 @@ interface Gate {
   name: string;
   latency: string;
   catchRate: string;
-  accentVar: string;
   accentHex: string;
   description: string;
   example: string;
@@ -25,7 +25,6 @@ const GATES: Gate[] = [
     name: 'Schema Sanity',
     latency: '0.6µs',
     catchRate: '100%',
-    accentVar: '--cerulean',
     accentHex: '#22d3ee',
     description: 'Validates tool name and argument JSON structures against pre-compiled AST schemas. Drops malformed, oversized, or structurally invalid payloads in under 1 microsecond — no LLM required.',
     example: '{ "tool": "fs.read", "args": { "path": "../../etc/shadow" } } → Schema reject: path traversal pattern',
@@ -37,7 +36,6 @@ const GATES: Gate[] = [
     name: 'CBAC Invariants',
     latency: '<4.8µs',
     catchRate: '99.6%',
-    accentVar: '--wire-live',
     accentHex: '#f59e0b',
     description: 'Evaluates 4 deterministic relational constraints: destination containment, scope boundedness, privilege monotonicity, and monetary clamping. No LLM calls — pure relational logic.',
     example: 'stripe.charge({ amount: 99999 }) → CBAC reject: monetary_clamp_exceeded (limit: $500)',
@@ -49,7 +47,6 @@ const GATES: Gate[] = [
     name: 'DIFC Taint Flow',
     latency: 'Realtime',
     catchRate: '100%',
-    accentVar: '--wire-sever',
     accentHex: '#ef4444',
     description: 'Taints data ingested from third-party documents, emails, or web pages. Strictly forbids tainted tokens from flowing into privileged sinks (exec, network, DB). Catches indirect injections invisible to Gates 1-2.',
     example: 'email.read() → tainted buffer → shell.exec() → DIFC reject: tainted→sink flow prohibited',
@@ -61,7 +58,6 @@ const GATES: Gate[] = [
     name: 'Mastyf Guard',
     latency: '1.5B INT4',
     catchRate: 'Revoke-only',
-    accentVar: '--wire-pass',
     accentHex: '#10b981',
     description: 'Subordinate neural checkpoint. Per Theorem 2 of the formal monograph: Guard can revoke or escalate permissions, but it can never synthesize new permissions or grant capability above the policy ceiling.',
     example: 'Ambiguous tool call → Guard 1.5B evaluates semantic intent → confidence < threshold → escalate to human',
@@ -73,228 +69,172 @@ const PRODUCTS = [
   {
     tag: '1. APPLIANCE & SIDECAR',
     name: 'Mastyf Shield',
-    tagColor: '#22d3ee',
+    tagColor: 'text-cyan-400',
     desc: 'Runs as a tamper-proof sidecar on your developer workstation. Zero-cloud, zero-latency, zero-byte wire isolation.',
     href: '/download',
-    cta: 'Download Shield →',
-    ctaStyle: 'circuit-product-cta-primary',
-    extra: <a href={HF_MODEL_URL} target="_blank" rel="noopener noreferrer" className="circuit-product-link">Gated 1.5B Weights ↗</a>,
+    cta: 'Download Shield',
   },
   {
     tag: '2. RUNTIME REVERSE PROXY',
     name: 'Mastyf Gateway',
-    tagColor: '#f59e0b',
+    tagColor: 'text-amber-400',
     desc: 'High-throughput fail-closed reverse proxy for MCP JSON-RPC, stdio, and HTTP. >330k req/s, sub-ms overhead.',
     href: '/developers',
-    cta: 'Gateway Docs →',
-    ctaStyle: 'circuit-product-cta-secondary',
-    extra: null,
+    cta: 'Gateway Docs',
   },
   {
     tag: '3. ADVERSARIAL CI/CD',
     name: 'Mastyf Swarm',
-    tagColor: '#a78bfa',
+    tagColor: 'text-purple-400',
     desc: "Stress-tests your agent's execution boundary with 4,216 multi-turn InjecAgent jailbreak vectors before deployment.",
     href: '/platform#swarm',
-    cta: 'Run in CI →',
-    ctaStyle: 'circuit-product-cta-secondary',
-    extra: null,
+    cta: 'Run in CI',
   },
   {
     tag: '4. MCP SUPPLY CHAIN',
     name: 'Mastyf Trust',
-    tagColor: '#10b981',
+    tagColor: 'text-emerald-400',
     desc: 'Static AST scanner and behavioral registry for MCP servers. Certified badges, CVE severity index, permission fingerprinting.',
     href: '/trust',
-    cta: 'Lookup Trust Score →',
-    ctaStyle: 'circuit-product-cta-secondary',
-    extra: null,
+    cta: 'Lookup Trust Score',
   },
   {
     tag: '5. ENTERPRISE FLEET',
     name: 'Control Plane',
-    tagColor: '#3b82f6',
+    tagColor: 'text-blue-400',
     desc: 'Centralized fleet governance: Ed25519 signed audit trails, YAML policy distribution, SIEM forwarding, SSO. SOC2/ISO27001-ready.',
     href: '/pricing',
-    cta: 'Deploy Control Plane →',
-    ctaStyle: 'circuit-product-cta-secondary',
-    extra: null,
+    cta: 'Deploy Control Plane',
   },
 ];
 
-function useSpotlight() {
-  const ref = useRef<HTMLDivElement>(null);
-  const onMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    el.style.setProperty('--mx', `${e.clientX - rect.left}px`);
-    el.style.setProperty('--my', `${e.clientY - rect.top}px`);
-  }, []);
-  return { ref, onMouseMove };
-}
-
-interface ProductCardProps {
-  product: typeof PRODUCTS[number];
-}
-
-function ProductCard({ product }: ProductCardProps) {
-  const spotlight = useSpotlight();
-  return (
-    <div
-      ref={spotlight.ref}
-      onMouseMove={spotlight.onMouseMove}
-      className="circuit-product-card"
-    >
-      <div className="circuit-product-spotlight" aria-hidden="true" />
-      <span className="circuit-product-tag" style={{ color: product.tagColor }}>
-        {product.tag}
-      </span>
-      <h3 className="circuit-product-name">{product.name}</h3>
-      <p className="circuit-product-desc">{product.desc}</p>
-      <div className="circuit-product-footer">
-        <Link href={product.href} className={`circuit-product-cta ${product.ctaStyle}`}>
-          {product.cta}
-        </Link>
-        {product.extra}
-      </div>
-    </div>
-  );
-}
-
-
 export function ForensicCircuitDiagram() {
   const [activeGate, setActiveGate] = useState<number>(1);
-  const [severing, setSevering] = useState(false);
-
-  const handleGateClick = (id: number) => {
-    setSevering(true);
-    setActiveGate(id);
-    setTimeout(() => setSevering(false), 600);
-  };
-
   const gate = GATES[activeGate - 1];
 
   return (
-    <section className="circuit-platform-section" id="platform-ecosystem">
-      {/* Section header — asymmetric, not centered */}
-      <div className="circuit-section-head">
-        <div className="circuit-section-eyebrow">
-          <span className="circuit-eyebrow-line" aria-hidden="true" />
-          <span>The 5-Layer Defense Ecosystem</span>
+    <section className="relative py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto" id="platform-ecosystem">
+      {/* Section Header */}
+      <div className="max-w-3xl mb-16">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono font-semibold uppercase tracking-wider mb-4">
+          The 4-Gate Execution Perimeter
         </div>
-        <h2 className="circuit-section-h2">
-          Hardware-grade security<br />
-          <em>without the overhead.</em>
+        <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          Hardware-grade security <br />
+          <span className="bg-gradient-to-r from-cyan-300 via-amber-300 to-emerald-300 bg-clip-text text-transparent">
+            without the execution overhead.
+          </span>
         </h2>
-        <p className="circuit-section-lead">
+        <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
           Inspired by formal capability-mediated perimeters and fail-closed reference monitors.
-          From developer sidecar to enterprise fleet governance.
+          Pre-dispatch deterministic evaluation guarantees that prohibited calls are severed before entering the network.
         </p>
       </div>
 
-      {/* The forensic circuit diagram */}
-      <div className="circuit-forensic-wrap">
-        {/* Gate selector row */}
-        <div className="circuit-gate-row" role="tablist" aria-label="Security gates">
-          {GATES.map((g, idx) => (
-            <button
-              key={g.id}
-              type="button"
-              role="tab"
-              aria-selected={activeGate === g.id}
-              onClick={() => handleGateClick(g.id)}
-              className={`circuit-gate-node${activeGate === g.id ? ' is-active' : ''}`}
-              style={{ '--gate-color': g.accentHex } as React.CSSProperties}
-            >
-              {/* Wire connector before (except first) */}
-              {idx > 0 && (
-                <div className="circuit-gate-wire">
-                  <span className="circuit-wire-line" />
-                  <span className="circuit-wire-arrow">▶</span>
+      {/* 4-Gate Interactive Pipeline */}
+      <div className="rounded-3xl bg-[#080d1a]/90 backdrop-blur-2xl border border-white/[0.1] p-6 sm:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.7)] mb-16">
+        {/* Gate Selection Tabs */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+          {GATES.map((g) => {
+            const isActive = activeGate === g.id;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setActiveGate(g.id)}
+                className={`relative flex flex-col p-4 rounded-2xl border text-left transition-all ${
+                  isActive
+                    ? 'bg-white/[0.08] border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/30'
+                    : 'bg-black/30 border-white/[0.06] hover:bg-white/[0.04] text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+                    {g.label}
+                  </span>
+                  <span className="text-[10px] font-mono text-cyan-300 font-semibold bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                    {g.latency}
+                  </span>
                 </div>
-              )}
-              <div className="circuit-gate-inner">
-                <span className="circuit-gate-label" style={{ color: g.accentHex }}>{g.label}</span>
-                <span className="circuit-gate-name">{g.name}</span>
-                <span className="circuit-gate-lat" style={{ color: g.accentHex }}>{g.latency}</span>
-                <span className={`circuit-gate-status ${g.status === 'BLOCK' ? 'is-block' : 'is-pass'}`}>
-                  {g.status === 'BLOCK' ? '⛔ INTERCEPTS' : '✓ EVALUATES'}
+                <span className="text-sm font-bold text-white mb-1">{g.name}</span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {g.status === 'BLOCK' ? 'Fail-Closed Intercept' : 'Neural Checkpoint'}
                 </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Sever animation bar */}
-        <div className={`circuit-sever-bar${severing ? ' is-severing' : ''}`} aria-hidden="true">
-          <span className="circuit-sever-label">⚡ WIRE SEVERED</span>
-        </div>
+        {/* Selected Gate Detail Card */}
+        <div className="rounded-2xl bg-black/50 border border-white/[0.08] p-6 sm:p-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-white/[0.08] mb-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-xs font-mono font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                  {gate.label}
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">{gate.name}</h3>
+              </div>
+              <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+                {gate.description}
+              </p>
+            </div>
 
-        {/* Active gate detail */}
-        <div
-          className={`circuit-gate-detail${severing ? ' circuit-gate-detail-sever' : ''}`}
-          role="tabpanel"
-          style={{ '--gate-color': gate.accentHex } as React.CSSProperties}
-        >
-          <div className="circuit-gate-detail-left">
-            <div className="circuit-gate-detail-header">
-              <span className="circuit-gate-detail-id" style={{ color: gate.accentHex }}>
-                {gate.label}
-              </span>
-              <span className="circuit-gate-detail-name">{gate.name}</span>
-            </div>
-            <div className="circuit-gate-metrics">
-              <div className="circuit-metric">
-                <span className="circuit-metric-val" style={{ color: gate.accentHex }}>{gate.latency}</span>
-                <span className="circuit-metric-lbl">latency overhead</span>
+            <div className="flex items-center gap-4 shrink-0 font-mono text-xs">
+              <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-center min-w-[100px]">
+                <div className="text-amber-400 font-bold text-base">{gate.latency}</div>
+                <div className="text-slate-400 text-[10px]">Overhead</div>
               </div>
-              <div className="circuit-metric">
-                <span className="circuit-metric-val" style={{ color: gate.accentHex }}>{gate.catchRate}</span>
-                <span className="circuit-metric-lbl">catch rate</span>
+              <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-center min-w-[100px]">
+                <div className="text-emerald-400 font-bold text-base">{gate.catchRate}</div>
+                <div className="text-slate-400 text-[10px]">Efficacy</div>
               </div>
             </div>
-            <p className="circuit-gate-desc">{gate.description}</p>
           </div>
-          <div className="circuit-gate-detail-right">
-            <div className="circuit-example-block">
-              <div className="circuit-example-header">
-                <span className="circuit-example-dot" />
-                <span className="circuit-example-label">EXAMPLE INTERCEPT</span>
-              </div>
-              <pre className="circuit-example-code">{gate.example}</pre>
-            </div>
+
+          {/* Example Code Trace */}
+          <div className="font-mono text-xs bg-[#04060d] p-4 rounded-xl border border-white/[0.06] text-slate-300">
+            <span className="text-slate-500"># Live Evaluation Trace:</span>
+            <div className="text-cyan-300 mt-1 select-all">{gate.example}</div>
           </div>
         </div>
       </div>
 
-      {/* Product grid — 5 products, not bento template */}
-      <div className="circuit-products-grid">
-        {PRODUCTS.map((product) => (
-          <ProductCard key={product.name} product={product} />
-        ))}
-      </div>
-
-      {/* Open source band */}
-      <div className="circuit-oss-band">
-        <div>
-          <span className="circuit-oss-label">Open Source Core · AGPL-3.0</span>
-          <p className="circuit-oss-desc">
-            Gateway, YAML policy engine, Swarm fixtures, and Trust directory — 100% open.
-            Verify every line of security enforcement yourself.
+      {/* 5 Ecosystem Product Pillars */}
+      <div>
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <h3 className="text-2xl font-bold text-white mb-2">5-Layer Defense Ecosystem</h3>
+          <p className="text-sm text-slate-400">
+            Deploy individually or as a unified platform across your AI agent stack.
           </p>
         </div>
-        <a
-          href={GITHUB_REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="circuit-oss-cta"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-          </svg>
-          Inspect on GitHub ↗
-        </a>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          {PRODUCTS.map((prod) => (
+            <div
+              key={prod.name}
+              className="flex flex-col justify-between p-5 rounded-2xl bg-[#080d1a]/80 hover:bg-[#0c1326]/90 border border-white/[0.08] hover:border-amber-400/30 transition-all duration-300"
+            >
+              <div>
+                <span className={`text-[10px] font-mono font-bold tracking-wider uppercase block mb-2 ${prod.tagColor}`}>
+                  {prod.tag}
+                </span>
+                <h4 className="text-base font-bold text-white mb-2">{prod.name}</h4>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                  {prod.desc}
+                </p>
+              </div>
+
+              <Link
+                href={prod.href}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 pt-3 border-t border-white/[0.06] transition-colors"
+              >
+                <span>{prod.cta}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
