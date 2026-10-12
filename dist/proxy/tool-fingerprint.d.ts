@@ -20,16 +20,6 @@ export type RugPullMismatchHandler = (ctx: {
  * Update fingerprint from a tools/list payload (JSON-RPC response or notification).
  * Returns true if a new rug-pull mismatch was detected this call.
  */
-/** Persist last tools/list (with inputSchema) for AI Access / discovery — not invented. */
-export declare function persistToolManifest(serverName: string, tools: ToolListEntry[]): void;
-export type ResourceListEntry = {
-    uri?: string;
-    name?: string;
-    description?: string;
-    mimeType?: string;
-};
-/** Persist last resources/list for AI Access — never invent URIs. */
-export declare function persistResourceManifest(serverName: string, resources: ResourceListEntry[]): void;
 export declare function applyToolFingerprint(state: ToolFingerprintState, tools: ToolListEntry[], ctx: {
     serverName: string;
     tenantId: string;

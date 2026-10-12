@@ -1,0 +1,125 @@
+/*
+ * Tailwind for the pages built with it: the dashboard and the Google Marketplace
+ * onboarding page. It is scoped so it cannot touch the rest of the site, whose
+ * design system lives in app/design:
+ *   - utilities only apply inside .tw-scope (tailwind.config.js: important: '.tw-scope');
+ *   - Tailwind's global preflight is off, and the reset below applies inside .tw-scope only;
+ *   - the colour variables these pages use are set on .tw-scope, not :root, so they
+ *     do not replace the site's --accent, --border or font tokens.
+ * Wrap a page's root in <div className="tw-scope"> and import this file to use it.
+ */
+
+@tailwind components;
+@tailwind utilities;
+
+.tw-scope {
+  --background: 240 23% 2%;
+  --foreground: 210 40% 98%;
+  --card: 224 47% 6%;
+  --card-foreground: 210 40% 98%;
+  --popover: 224 47% 6%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 38 92% 50%;
+  --primary-foreground: 240 23% 2%;
+  --secondary: 223 38% 7%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 38 92% 50%;
+  --accent-foreground: 240 23% 2%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 38 92% 50%;
+  --radius: 0.5rem;
+  /* The config's font families point at these; map them onto the site's fonts. */
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-bricolage);
+  color: hsl(var(--foreground));
+  font-family: var(--font), sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tailwind's preflight, limited to the scope. */
+.tw-scope *,
+.tw-scope ::before,
+.tw-scope ::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: hsl(var(--border));
+}
+
+.tw-scope :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  line-height: inherit;
+}
+
+.tw-scope :is(p, blockquote, figure, dl, dd, pre, hr) {
+  margin: 0;
+}
+
+.tw-scope :is(ol, ul, menu) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tw-scope a {
+  text-decoration: inherit;
+}
+
+/* The site's element styles colour text with its theme tokens; inside the scope these
+   pages set their own colours, so the elements inherit instead. (Tailwind classes on an
+   element still win: they are scoped too, so more specific.) */
+.tw-scope :is(h1, h2, h3, h4, h5, h6, p, label, code, kbd, samp, pre),
+.tw-scope :is(a, a:hover) {
+  color: inherit;
+}
+
+.tw-scope :is(input, textarea)::placeholder {
+  color: hsl(var(--muted-foreground));
+  opacity: 1;
+}
+
+.tw-scope :is(button, input, input[type], optgroup, select, textarea) {
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  background-color: transparent;
+}
+
+.tw-scope :is(button, [role='button']) {
+  cursor: pointer;
+}
+
+.tw-scope :is(img, svg, video, canvas, iframe) {
+  display: block;
+  vertical-align: middle;
+}
+
+.tw-scope :is(img, video) {
+  max-width: 100%;
+  height: auto;
+}
+
+.tw-scope :is(code, kbd, samp, pre) {
+  padding: 0;
+  font-family: var(--font-code), ui-monospace, monospace;
+  font-size: 1em;
+  background: none;
+  border: 0;
+}
+
+.tw-scope table {
+  border-collapse: collapse;
+  border-color: inherit;
+  text-indent: 0;
+}

@@ -11,7 +11,6 @@ import { verifyPassword, validatePasswordAgainstPolicy } from './password.js';
 import { requireAuth, requirePermission, setSessionCookies, clearSessionCookies, parseCookies, clientIp, SESSION_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME, } from './auth-middleware.js';
 import { AUDIT_ACTIONS } from './rbac-types.js';
 import { Logger } from '../utils/logger.js';
-import { isKnownDashboardApiKey, resolveRolesForApiKey } from './dashboard-rbac.js';
 const DEFAULT_TENANT = 'default';
 function getTenantId(req) {
     return (req.header('x-mastyf-ai-tenant') || req.header('x-tenant-id') || DEFAULT_TENANT).trim() || DEFAULT_TENANT;
@@ -175,25 +174,6 @@ export function registerAuthRoutes(app) {
                 permissions: req.authUser.permissions,
                 sessionTenantId: req.authUser.tenantId,
                 openCore: false,
-            });
-            return;
-        }
-        const bearer = (req.header('authorization') || '').match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-        const apiKey = (req.header('x-api-key') || bearer || '').trim();
-        if (apiKey && isKnownDashboardApiKey(apiKey)) {
-            const roles = resolveRolesForApiKey(apiKey);
-            res.json({
-                authenticated: true,
-                authRequired: true,
-                authConfigured: true,
-                setupRequired,
-                identity: 'appliance_api_key',
-                dashboardRole: roles[0] ?? 'operator',
-                roles,
-                permissions: [],
-                sessionTenantId: tenantId,
-                openCore: false,
-                authMechanism: 'api_key',
             });
             return;
         }

@@ -1,24 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { Logger } from '../utils/logger.js';
-import { allProFeatureNames, isCiLicenseBypass, isOpenCoreEnabled, isProFeature, licenseTier, } from './feature-tiers.js';
+import { isCiLicenseBypass, isOpenCoreEnabled, isProFeature, licenseTier, } from './feature-tiers.js';
 import { isCiTokenCached } from './ci-token.js';
-import { looksLikeLemonKey, readOfflinePublicKey, verifyOfflineLicenseToken, } from './offline-license.js';
 const GCP_PREFIX = 'gcp_';
 let singleton = null;
 export function isCloudLicenseKey(key) {
     return key.startsWith(GCP_PREFIX);
-}
-function readOfflineLicenseKeyFromFile() {
-    const file = process.env['MASTYF_AI_LICENSE_FILE'];
-    if (!file || !existsSync(file))
-        return process.env['MASTYF_AI_OFFLINE_LICENSE_KEY'];
-    try {
-        const rec = JSON.parse(readFileSync(file, 'utf8'));
-        return rec.token || process.env['MASTYF_AI_OFFLINE_LICENSE_KEY'];
-    }
-    catch {
-        return process.env['MASTYF_AI_OFFLINE_LICENSE_KEY'];
-    }
 }
 export function loadLicenseClientConfig() {
     return {
@@ -27,9 +13,6 @@ export function loadLicenseClientConfig() {
         requireLicense: process.env['MASTYF_AI_REQUIRE_LICENSE'] === 'true',
         refreshSeconds: parseInt(process.env['MASTYF_AI_LICENSE_REFRESH_SECONDS'] || '300', 10) || 300,
         graceSeconds: parseInt(process.env['MASTYF_AI_LICENSE_GRACE_SECONDS'] || '900', 10) || 900,
-        offlineLicenseKey: readOfflineLicenseKeyFromFile(),
-        offlinePublicKey: readOfflinePublicKey(process.env['MASTYF_AI_LICENSE_PUBLIC_KEY']),
-        machineId: process.env['MASTYF_AI_LICENSE_MACHINE_ID'],
     };
 }
 export function isLicenseEnforcementEnabled() {
@@ -76,16 +59,12 @@ export class LicenseClient {
         // Open source: all features unlocked unless cloud license enforcement is on.
         if (!isLicenseEnforcementEnabled())
             return true;
+        if (!this.isEnabled())
+            return false;
         if (this.state?.licensed)
             return true;
         if (this.lastGoodState && this.isWithinGrace())
             return true;
-        if (this.applyOfflineLicense())
-            return true;
-        if (this.applyLemonLicense())
-            return true;
-        if (!this.isEnabled())
-            return false;
         return false;
     }
     getTier() {
@@ -110,49 +89,7 @@ export class LicenseClient {
         return this.state?.cloudBillingUrl ?? this.lastGoodState?.cloudBillingUrl;
     }
     isEnabled() {
-        return !!(this.config.controlPlaneUrl && this.config.licenseKey) || this.hasOfflineLicense();
-    }
-    hasOfflineLicense() {
-        return Boolean(this.config.offlineLicenseKey && this.config.offlinePublicKey);
-    }
-    applyLemonLicense() {
-        const key = this.config.licenseKey || process.env['MASTYF_LICENSE_KEY'] || '';
-        if (process.env['MASTYF_AI_PACKAGED'] !== 'true')
-            return false;
-        if (!looksLikeLemonKey(key))
-            return false;
-        this.state = {
-            licensed: true,
-            tenantSlug: 'lemon',
-            status: 'lemon-store',
-            features: [...allProFeatureNames()],
-            expiresAt: null,
-            graceUntil: null,
-            cloudBillingUrl: process.env['MASTYF_SHIELD_STORE_URL'] || 'https://mastyfai.lemonsqueezy.com/',
-            checkedAt: Date.now(),
-        };
-        this.lastGoodState = this.state;
-        return true;
-    }
-    applyOfflineLicense() {
-        if (!this.hasOfflineLicense())
-            return false;
-        const result = verifyOfflineLicenseToken(String(this.config.offlineLicenseKey), String(this.config.offlinePublicKey), Date.now(), this.config.machineId || '');
-        if (!result.ok)
-            return false;
-        this.state = {
-            licensed: true,
-            tenantSlug: result.payload?.sub || result.payload?.email || 'shield',
-            orgName: result.payload?.email,
-            status: result.grace ? 'offline-grace' : 'offline-active',
-            features: [...allProFeatureNames()],
-            expiresAt: result.expiresAt || null,
-            graceUntil: null,
-            cloudBillingUrl: process.env['MASTYF_SHIELD_STORE_URL'] || '',
-            checkedAt: Date.now(),
-        };
-        this.lastGoodState = this.state;
-        return true;
+        return !!(this.config.controlPlaneUrl && this.config.licenseKey);
     }
     requiresLicense() {
         return this.config.requireLicense && this.isEnabled();
@@ -221,17 +158,9 @@ export class LicenseClient {
         this.notify();
     }
     async start() {
-        if (this.hasOfflineLicense() && this.applyOfflineLicense()) {
-            Logger.info('[license] Offline Shield license accepted');
-            return true;
-        }
-        if (this.applyLemonLicense()) {
-            Logger.info('[license] Lemon Squeezy license accepted in packaged Shield');
-            return true;
-        }
         if (!this.isEnabled()) {
             if (this.config.requireLicense) {
-                Logger.error('[license] MASTYF_AI_REQUIRE_LICENSE=true but no offline license and no control-plane key');
+                Logger.error('[license] MASTYF_AI_REQUIRE_LICENSE=true but MASTYF_AI_CONTROL_PLANE_URL/MASTYF_AI_LICENSE_KEY missing');
                 return false;
             }
             if (isOpenCoreEnabled()) {

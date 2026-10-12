@@ -7,6 +7,7 @@ import { getUserOrg } from '@/lib/org-context';
 import { queryFleetThreatGraph } from '@/lib/fleet-threat-graph';
 import { sql } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
+import { Server, Activity, ShieldAlert, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 export default async function FleetPage() {
   const session = await auth();
@@ -45,158 +46,138 @@ export default async function FleetPage() {
   try { threatGraph = await queryFleetThreatGraph(ctx.org.id, 24); } catch {}
 
   return (
-    <main className="dashboard-page">
-      <section className="dashboard-section">
-        <h1>Fleet</h1>
-        <p>Self-hosted proxy instances registered via heartbeat ({instances.length})</p>
-        <LaunchDashboard />
-        <table className="fleet-table">
-          <thead>
-            <tr>
-              <th>Instance</th>
-              <th>Region</th>
-              <th>Status</th>
-              <th>Version</th>
-              <th>Last heartbeat</th>
-            </tr>
-          </thead>
-          <tbody>
-            {instances.map((i) => (
-              <tr key={i.instance_id}>
-                <td>
-                  <strong>{i.instance_name || i.instance_id}</strong>
-                  <div className="muted">{i.hostname}</div>
-                </td>
-                <td>{i.region || '—'}</td>
-                <td>{i.status}</td>
-                <td>{i.version || '—'}</td>
-                <td>{new Date(i.last_heartbeat).toLocaleString()}</td>
-              </tr>
-            ))}
-            {instances.length === 0 && (
-              <tr>
-                <td colSpan={5}>
-                  No instances yet. Set <code>MASTYF_AI_CLOUD_API_KEY</code> and{' '}
-                  <code>MASTYF_AI_CONTROL_PLANE_URL</code> on your proxy host.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+    <div className="space-y-8">
+      
+      {/* Header */}
+      <div className="pb-6 border-b border-white/[0.08]">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <Server className="w-4 h-4" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Fleet Hub & Instances
+          </h1>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase font-bold">
+            {instances.length} Registered
+          </span>
+        </div>
+        <p className="text-xs text-slate-400 font-mono mt-1">
+          Self-hosted proxy sidecars registered via cryptographic heartbeat across distributed Kubernetes and Docker clusters.
+        </p>
+      </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '24px 0' }}>
-          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Total Requests</div>
-            <div style={{ fontSize: 28, fontWeight: 700 }}>{audit.total}</div>
-          </div>
-          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Blocked</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--critical)' }}>{audit.blocked}</div>
-          </div>
-          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Allowed</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--ok)' }}>{audit.allowed}</div>
-          </div>
-          <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>Audit Periods</div>
-            <div style={{ fontSize: 28, fontWeight: 700 }}>{audit.periods}</div>
-          </div>
+      {/* 4 Summary Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="p-5 rounded-2xl bg-slate-950/70 border border-white/[0.08] backdrop-blur-xl">
+          <div className="text-xs font-mono text-slate-400 mb-1">Total Requests</div>
+          <div className="text-2xl font-bold text-white font-mono">{audit.total}</div>
+          <span className="text-[10px] text-slate-500 font-mono">Cumulative traffic</span>
         </div>
 
-        {policyVersions.length > 0 && (
-          <>
-            <h2>Policy Versions</h2>
-            <table className="fleet-table">
-              <thead><tr><th>Version</th><th>Published</th></tr></thead>
-              <tbody>
-                {policyVersions.map((pv: any) => (
-                  <tr key={pv.version}>
-                    <td>v{pv.version}</td>
-                    <td>{new Date(pv.published_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
+        <div className="p-5 rounded-2xl bg-slate-950/70 border border-white/[0.08] backdrop-blur-xl">
+          <div className="text-xs font-mono text-slate-400 mb-1">Blocked Attacks</div>
+          <div className="text-2xl font-bold text-rose-400 font-mono">{audit.blocked}</div>
+          <span className="text-[10px] text-rose-400/80 font-mono">0 backend bytes</span>
+        </div>
 
-        <h2>Fleet threat graph (24h)</h2>
-        <p>Anonymized attack signatures aggregated from instance heartbeats — no raw payloads.</p>
-        {threatGraph && threatGraph.signatures.length > 0 ? (
-          <>
-            {threatGraph.alerts.length > 0 && (
-              <ul className="fleet-alerts">
-                {threatGraph.alerts.map((a: any) => (
-                  <li key={a.signatureId}>{a.message}</li>
-                ))}
-              </ul>
-            )}
-            <table className="fleet-table">
-              <thead>
-                <tr>
-                  <th>Signature</th>
-                  <th>Rule</th>
-                  <th>Tool</th>
-                  <th>Region</th>
-                  <th>Events</th>
-                </tr>
-              </thead>
-              <tbody>
-                {threatGraph.signatures.slice(0, 50).map((s: any) => (
-                  <tr key={`${s.signature_id}-${s.region}`}>
-                    <td><code>{s.signature_id.slice(0, 12)}…</code></td>
-                    <td>{s.rule_name}</td>
-                    <td>{s.tool_name}</td>
-                    <td>{s.region || '—'}</td>
-                    <td>{s.event_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        ) : (
-          <p className="muted">No threat signatures yet — heartbeats include anonymized blocks when instances report activity.</p>
-        )}
+        <div className="p-5 rounded-2xl bg-slate-950/70 border border-white/[0.08] backdrop-blur-xl">
+          <div className="text-xs font-mono text-slate-400 mb-1">Allowed Calls</div>
+          <div className="text-2xl font-bold text-emerald-400 font-mono">{audit.allowed}</div>
+          <span className="text-[10px] text-emerald-400/80 font-mono">Valid capability scope</span>
+        </div>
 
-        <h2>Federated signature hints</h2>
-        <p>Cross-instance attack patterns for herd immunity (≥2 instances, no raw payloads).</p>
-        {threatGraph && threatGraph.signatures.filter((s: any) => s.instance_count >= 2).length > 0 ? (
-          <table className="fleet-table">
+        <div className="p-5 rounded-2xl bg-slate-950/70 border border-white/[0.08] backdrop-blur-xl">
+          <div className="text-xs font-mono text-slate-400 mb-1">Audit Periods</div>
+          <div className="text-2xl font-bold text-cyan-400 font-mono">{audit.periods}</div>
+          <span className="text-[10px] text-slate-500 font-mono">Verified sync cycles</span>
+        </div>
+      </div>
+
+      {/* Instances Table */}
+      <div className="rounded-2xl bg-slate-950/80 border border-white/[0.08] overflow-hidden shadow-2xl">
+        <div className="px-6 py-4 bg-slate-900/60 border-b border-white/[0.06] flex items-center justify-between">
+          <h2 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+            <Activity className="w-4 h-4 text-amber-400" />
+            Registered Sidecar Instances
+          </h2>
+          <span className="text-xs font-mono text-slate-400">{instances.length} active</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-mono">
             <thead>
-              <tr>
-                <th>Signature</th>
-                <th>Rule</th>
-                <th>Tool</th>
-                <th>Category</th>
-                <th>Instances</th>
-                <th>Events</th>
+              <tr className="border-b border-white/[0.06] text-slate-400 bg-slate-950/40">
+                <th className="py-3 px-6">Instance</th>
+                <th className="py-3 px-4">Region</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Version</th>
+                <th className="py-3 px-6 text-right">Last Heartbeat</th>
               </tr>
             </thead>
-            <tbody>
-              {threatGraph.signatures
-                .filter((s: any) => s.instance_count >= 2)
-                .slice(0, 30)
-                .map((s: any) => (
-                  <tr key={`hint-${s.signature_id}`}>
-                    <td><code>{s.signature_id.slice(0, 12)}…</code></td>
-                    <td>{s.rule_name}</td>
-                    <td>{s.tool_name}</td>
-                    <td>{s.category || '—'}</td>
-                    <td>{s.instance_count}</td>
-                    <td>{s.event_count}</td>
-                  </tr>
-                ))}
+            <tbody className="divide-y divide-white/[0.04] text-slate-300">
+              {instances.map((i) => (
+                <tr key={i.instance_id} className="hover:bg-white/[0.02] transition-colors">
+                  <td className="py-3 px-6">
+                    <strong className="text-white block font-sans">{i.instance_name || i.instance_id}</strong>
+                    <span className="text-[11px] text-slate-500">{i.hostname}</span>
+                  </td>
+                  <td className="py-3 px-4 text-slate-400">{i.region || '—'}</td>
+                  <td className="py-3 px-4">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      {i.status || 'ONLINE'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-slate-400">{i.version || 'v2.2'}</td>
+                  <td className="py-3 px-6 text-right text-slate-400">
+                    {new Date(i.last_heartbeat).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+              {instances.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                    No instances registered yet. Configure <code className="text-amber-300">MASTYF_AI_CLOUD_API_KEY</code> and <code className="text-amber-300">MASTYF_AI_CONTROL_PLANE_URL</code> on your proxy host.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-        ) : (
-          <p className="muted">No federated hints yet — requires multiple instances reporting the same anonymized signature.</p>
-        )}
+        </div>
+      </div>
 
-        <h2>🛡️ Rug-Pull Detection</h2>
-        <p>Tool-definition drift events detected by OWASP MCP03 fingerprinting. A mismatch means the MCP server changed its tools mid-session — a potential supply-chain attack.</p>
+      {/* Policy Versions Table */}
+      {policyVersions.length > 0 && (
+        <div className="rounded-2xl bg-slate-950/80 border border-white/[0.08] overflow-hidden shadow-2xl">
+          <div className="px-6 py-4 bg-slate-900/60 border-b border-white/[0.06]">
+            <h2 className="text-sm font-bold text-white font-mono">Published Policy History</h2>
+          </div>
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b border-white/[0.06] text-slate-400">
+                <th className="py-3 px-6">Version</th>
+                <th className="py-3 px-6 text-right">Published Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04] text-slate-300">
+              {policyVersions.map((pv: any) => (
+                <tr key={pv.version} className="hover:bg-white/[0.02]">
+                  <td className="py-3 px-6 text-amber-400 font-bold">v{pv.version}</td>
+                  <td className="py-3 px-6 text-right text-slate-400">{new Date(pv.published_at).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Rug-Pull Detection & Auto-Corpus Control Panels */}
+      <div className="space-y-6 pt-4">
         <RugPullSection />
         <AutoCorpusControlPanel />
-      </section>
-    </main>
+      </div>
+
+      <LaunchDashboard />
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { SignInButtons } from '@/components/SignInButtons';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteNav } from '@/components/SiteNav';
-import { auth } from '@/lib/auth';
+import { safeAuth } from '@/lib/safe-auth';
 import { CLOUD_NAME, SITE_NAME } from '@/lib/product-links';
 import { oauthProviderStatus } from '@/lib/oauth-providers';
 import { SUPPORT_EMAIL } from '@/lib/support';
@@ -33,7 +33,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const session = await auth();
+  const session = await safeAuth();
   const params = await searchParams;
   let callbackUrl = params.callbackUrl ?? '/dashboard';
   try {

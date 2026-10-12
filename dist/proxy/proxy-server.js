@@ -25,15 +25,13 @@ import { scanForSecrets } from '../scanners/secret-scanner.js';
 import { isProxyEntropyCheckEnabled, scanArgumentEntropy } from '../utils/arg-entropy.js';
 import * as Metrics from '../utils/metrics.js';
 import { withMcpToolCallSpan, runWithExtractedTraceAsync } from './trace-context.js';
-import { getTraceLogFields } from '../utils/tracing.js';
 import { persistCallRecord } from '../utils/call-record-cost.js';
-import { takeDecideLatencyMs } from '../gateway-ledger/gateway-arbiter-client.js';
 import { agenticRecordCompletedToolCall, agenticRecordDeniedToolCall, } from './agentic-hooks-bridge.js';
 import { recordBlockLearningEvent, fingerprintArgs, redactArgSnippets, redactArguments, ingestPolicyDecision, } from '../ai/block-learning.js';
 import { evaluateToolCallDefense } from './tool-call-defense-orchestrator.js';
 import { publishRugPullAlert, isClusterRugPullActive } from './rug-pull-cluster.js';
 import { onToolsListObserved } from './lifecycle-assurance-gates.js';
-import { applyToolFingerprintFromResult, persistResourceManifest, } from './tool-fingerprint.js';
+import { applyToolFingerprintFromResult, } from './tool-fingerprint.js';
 import { isProxyInflightExceeded, proxyMaxInflight } from './proxy-inflight.js';
 import { resolveToolTimeoutMs } from '../utils/tool-timeout.js';
 import { resolveModelId, resolveModelIdForServer } from '../config/llm-config.js';
@@ -77,12 +75,6 @@ export class McpProxyServer {
     rugPullState = { fingerprint: null, blocked: false };
     /** Pending tools/list JSON-RPC ids awaiting correlated responses. */
     pendingToolsListIds = new Set();
-    /**
-     * Internal resources/list ids issued by the proxy after tools/list —
-     * responses are persisted for AI Access and never forwarded to the client.
-     */
-    pendingInternalResourceListIds = new Set();
-    resourcesListIssued = false;
     mcpSessionId = null;
     mcpAgentId = null;
     requestTimeoutMs;
@@ -190,47 +182,9 @@ export class McpProxyServer {
             Logger.debug(`[proxy:${this.serverName}] stdout closed`);
         });
     }
-    /**
-     * After tools/list, issue an internal resources/list so AI Access can show
-     * a live inventory without inventing URIs. Response is not forwarded to clients.
-     */
-    issueProactiveResourcesList() {
-        if (this.resourcesListIssued)
-            return;
-        if (!this.child.stdin || this.child.stdin.destroyed)
-            return;
-        this.resourcesListIssued = true;
-        const id = `mastyf-res-${Date.now()}`;
-        this.pendingInternalResourceListIds.add(id);
-        try {
-            this.child.stdin.write(`${JSON.stringify({
-                jsonrpc: '2.0',
-                id,
-                method: 'resources/list',
-                params: {},
-            })}\n`);
-            Logger.debug(`[proxy:${this.serverName}] Issued proactive resources/list id=${id}`);
-        }
-        catch (err) {
-            this.pendingInternalResourceListIds.delete(id);
-            this.resourcesListIssued = false;
-            const msg = err instanceof Error ? err.message : String(err);
-            Logger.debug(`[proxy:${this.serverName}] proactive resources/list failed: ${msg}`);
-        }
-    }
     async handleStdoutLine(line) {
         try {
             const msg = JSON.parse(line);
-            // Swallow proxy-issued resources/list responses (AI Access inventory).
-            if (msg.id != null &&
-                this.pendingInternalResourceListIds.has(msg.id)) {
-                this.pendingInternalResourceListIds.delete(msg.id);
-                if (msg.result?.resources && Array.isArray(msg.result.resources)) {
-                    persistResourceManifest(this.serverName, msg.result.resources);
-                    Logger.debug(`[proxy:${this.serverName}] Persisted ${msg.result.resources.length} resources from proactive resources/list`);
-                }
-                return;
-            }
             // ── Rug-pull: fingerprint tools/list on any message carrying result.tools ──
             if (msg.result?.tools && Array.isArray(msg.result.tools)) {
                 if (msg.id != null)
@@ -243,12 +197,6 @@ export class McpProxyServer {
                         void publishRugPullAlert(this.serverName, this.defaultTenantId, this.rugPullState.fingerprint || '');
                     },
                 });
-                // Inspector pattern: after tools/list, proactively capture resources/list.
-                this.issueProactiveResourcesList();
-            }
-            // Persist resources/list for AI Access (client-initiated or opportunistic).
-            if (msg.result?.resources && Array.isArray(msg.result.resources)) {
-                persistResourceManifest(this.serverName, msg.result.resources);
             }
             if (msg.id != null) {
                 const reqCtx = this.requestContexts.get(msg.id);
@@ -429,7 +377,7 @@ export class McpProxyServer {
         if (!this.requestContexts.get(requestId))
             return;
         const durationMs = Date.now() - (reqCtx.requestStartTime ?? Date.now());
-        this.recordDeniedCall(toolName, reqCtx.requestTokens ?? 0, durationMs, 'request-timeout', reason, undefined, reqCtx.tenantId, requestId);
+        this.recordDeniedCall(toolName, reqCtx.requestTokens ?? 0, durationMs, 'request-timeout', reason, undefined, reqCtx.tenantId);
         this.breakerFor(reqCtx.tenantId || this.defaultTenantId).recordFailure();
         Metrics.recordProxyBlock({
             server_name: this.serverName,
@@ -473,12 +421,9 @@ export class McpProxyServer {
     recordDeniedCall(toolName, requestTokens, durationMs, blockRule, blockReason, requestArguments, tenantId, requestId) {
         const tid = tenantId || this.defaultTenantId;
         const snippets = redactArgSnippets(requestArguments);
-        const rid = requestId != null ? String(requestId) : undefined;
         const record = {
             serverName: this.serverName,
-            serverId: this.serverName,
             toolName,
-            requestId: rid,
             requestTokens,
             responseTokens: 0,
             totalTokens: requestTokens,
@@ -489,22 +434,16 @@ export class McpProxyServer {
             blockReason,
             argumentSnippet: snippets.length > 0 ? snippets.join(' | ').slice(0, 2048) : undefined,
             tenantId: tid,
-            totalLatencyMs: rid ? takeDecideLatencyMs(rid) : undefined,
-            traceId: getTraceLogFields().trace_id,
-            commandArgs: requestArguments ? [toolName] : undefined,
         };
         StructuredLogger.logBlocked({
             event: 'tool_blocked',
-            requestId: rid ?? 'stdio-denied',
+            requestId: String(requestId ?? 'stdio-denied'),
             serverName: this.serverName,
             toolName,
             reason: blockReason,
             rule: blockRule,
         });
-        const msg = rid
-            ? { id: rid, method: 'tools/call', params: { name: toolName, arguments: requestArguments } }
-            : undefined;
-        persistCallRecord(this.db, record, msg, this.spawnEnv, this.spawnArgs).catch((err) => Logger.debug(`Proxy: failed to store denied call record: ${err?.message}`));
+        persistCallRecord(this.db, record, undefined, this.spawnEnv, this.spawnArgs).catch((err) => Logger.debug(`Proxy: failed to store denied call record: ${err?.message}`));
         const learningEvent = {
             block_rule: blockRule,
             block_reason: blockReason,
@@ -643,7 +582,7 @@ export class McpProxyServer {
                 if (this.rugPullState.blocked
                     || (await isClusterRugPullActive(this.serverName, tenantForRug))) {
                     const toolName = msg.params?.name || 'unknown';
-                    this.recordDeniedCall(toolName, 0, Date.now() - proxyStartTime, 'tool-fingerprint-mismatch', 'Tool definitions changed mid-session (rug-pull detected)', undefined, tenantForRug, msg.id);
+                    this.recordDeniedCall(toolName, 0, Date.now() - proxyStartTime, 'tool-fingerprint-mismatch', 'Tool definitions changed mid-session (rug-pull detected)');
                     this.sendError(msg.id, -32001, 'Blocked by MCP Mastyf AI policy: tool definitions changed mid-session (rug-pull)', {
                         rule: 'tool-fingerprint-mismatch',
                         policy: this.policyEngine?.getMode() ?? 'block',
@@ -711,7 +650,7 @@ export class McpProxyServer {
                     const multimodalFindings = scanMultimodalContent(requestArguments);
                     if (multimodalFindings.length > 0 && this.policyEngine?.getMode() === 'block') {
                         const mmReason = multimodalFindings.map((f) => f.description).slice(0, 3).join('; ');
-                        this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, 'multimodal-injection', mmReason, requestArguments, requestTenantId, msg.id);
+                        this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, 'multimodal-injection', mmReason);
                         this.sendError(msg.id, -32001, `Blocked by MCP Mastyf AI policy: ${mmReason}`, {
                             rule: 'multimodal-injection',
                             policy: 'block',
@@ -737,7 +676,7 @@ export class McpProxyServer {
                             const entropyFindings = scanArgumentEntropy(argString);
                             if (entropyFindings.length > 0) {
                                 const entropyReason = `High-entropy encoded payload in '${toolName}' arguments (${entropyFindings[0].kind}, entropy=${entropyFindings[0].entropy.toFixed(2)})`;
-                                this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, 'arg-entropy', entropyReason, requestArguments, requestTenantId, msg.id);
+                                this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, 'arg-entropy', entropyReason);
                                 this.sendError(msg.id, -32001, `Blocked by MCP Mastyf AI policy: ${entropyReason}`, {
                                     rule: 'arg-entropy',
                                     policy: 'block',
@@ -748,7 +687,7 @@ export class McpProxyServer {
                         // DLP block in blocking mode — stop exfiltration before it reaches the server
                         if (this.policyEngine?.getMode() === 'block') {
                             const dlpReason = `${secretFindings.length} potential secret(s) detected in '${toolName}' arguments. Detected: ${secretSummary}`;
-                            this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, 'secret-scan', dlpReason, requestArguments, requestTenantId, msg.id);
+                            this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, 'secret-scan', dlpReason);
                             this.sendError(msg.id, -32001, `Blocked by MCP Mastyf AI policy: ${dlpReason}`, { rule: 'secret-scan', policy: 'block' });
                             StructuredLogger.info({
                                 event: 'request_denied',
@@ -912,7 +851,7 @@ export class McpProxyServer {
                     if (!defense.allowed) {
                         authzAllowed = false;
                         blockReason = `${defense.phase}:${defense.rule}:${defense.reason}`;
-                        this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, defense.rule, defense.reason, requestArguments, requestTenantId, requestId);
+                        this.recordDeniedCall(toolName, requestTokens, Date.now() - proxyStartTime, defense.rule, defense.reason, requestArguments, requestTenantId);
                         this.sendError(msg.id, -32001, `Blocked by MCP Mastyf AI: ${defense.reason}`, {
                             rule: defense.rule,
                             policy: engine.getMode(),

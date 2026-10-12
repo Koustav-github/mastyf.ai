@@ -6,7 +6,7 @@ export declare class PricingClient {
     private liveModels;
     /**
      * Sync cost estimate (per-million tokens). Third arg `true` = output pricing.
-     * Uses live/custom rates when present, otherwise the last-reviewed static table.
+     * Uses configured live/custom pricing only. Unknown pricing is unavailable.
      */
     calculateCost(tokens: number, model: string, isOutput?: boolean): number;
     getPricingForModel(model: string): {
@@ -18,7 +18,7 @@ export declare class PricingClient {
     /** Best-effort live refresh via signed remote URL or litellm. */
     refreshLivePricing(): Promise<void>;
     /**
-     * Get pricing for a model (static table first, then cached, then litellm fallback).
+     * Get live pricing for a model via litellm.
      */
     getModelPricing(model: string): Promise<{
         input: number;

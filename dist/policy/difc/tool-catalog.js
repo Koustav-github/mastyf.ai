@@ -118,11 +118,6 @@ const KNOWN_TOOL_PROFILES = {
         egressClearance: new Set(),
         requiredIntegrity: new Set(['trusted_system', 'trusted_user']),
     },
-    // Internal formatters — not egress
-    format_address_label: {
-        type: 'internal',
-        egressClearance: new Set(['confidential', 'filesystem_private', 'pii', 'financial']),
-    },
 };
 function splitIdentifier(name) {
     return name

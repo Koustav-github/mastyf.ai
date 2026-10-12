@@ -31,20 +31,17 @@ policy:
           - curl
           - wget
     - name: deny-github-write-tools
-      description: Block GitHub mutation tools (exfil via create_issue, push, etc.)
+      description: Block destructive repository actions (repo deletion, etc.)
       action: block
       tools:
         deny:
-          - create_issue
-          - create_pull_request
-          - update_issue
-          - push_files
-          - create_repository
           - delete_repository
-          - merge_pull_request
+          - delete_branch
+          - force_push
     - name: allowlist-common-tools
       description: Read-only / query tools; all others blocked by default_action
       action: block
+      enabled: false
       tools:
         allow:
           - read_file

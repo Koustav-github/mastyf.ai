@@ -45,7 +45,6 @@ let processing = false;
 let debounceTimer = null;
 let llmByModel = new Map();
 let stats = { processed: 0, flagged: 0, dropped: 0 };
-let reserveInFlight = 0;
 export function isSemanticAsyncEnabled(tenantId) {
     return isSemanticAsyncEnabledForTenant(tenantId);
 }
@@ -58,7 +57,6 @@ export function resetSemanticAuditStateForTests() {
     debounceTimer = null;
     llmByModel.clear();
     stats = { processed: 0, flagged: 0, dropped: 0 };
-    reserveInFlight = 0;
     semanticAuditQueueDepth.set(0);
 }
 export function getSemanticAuditStats() {
@@ -95,29 +93,17 @@ async function persistSemanticAudit(job, result, meta) {
 }
 /** Wait for debounced async semantic queue (used by swarm live scenario before proxy exit). */
 export async function flushSemanticAuditQueue(maxWaitMs = 15000) {
-    const started = Date.now();
-    let spins = 0;
-    const maxSpins = 20_000;
-    while (spins++ < maxSpins) {
-        if (Date.now() - started >= maxWaitMs && Date.now() !== started)
-            break;
-        if (reserveInFlight > 0) {
-            await Promise.resolve();
-            continue;
-        }
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
         if (debounceTimer) {
             clearTimeout(debounceTimer);
             debounceTimer = null;
-        }
-        if (queue.length > 0) {
             await drainQueue();
-            continue;
         }
-        if (processing) {
-            await Promise.resolve();
-            continue;
+        else if (!processing && queue.length === 0) {
+            break;
         }
-        break;
+        await new Promise((r) => setTimeout(r, 100));
     }
     return getSemanticAuditStats();
 }
@@ -133,10 +119,7 @@ function getLlm(tenantId) {
 }
 /** Enqueue async semantic audit (debounced batch drain). Never blocks the caller. */
 export function enqueueSemanticAudit(job) {
-    reserveInFlight += 1;
-    void reserveAndEnqueue(job).finally(() => {
-        reserveInFlight = Math.max(0, reserveInFlight - 1);
-    });
+    void reserveAndEnqueue(job);
 }
 async function reserveAndEnqueue(job) {
     if (!isSemanticAsyncEnabled(job.tenantId))
@@ -144,7 +127,7 @@ async function reserveAndEnqueue(job) {
     warnLocalSemanticQueueCapsIfNeeded();
     if (!getLlm(job.tenantId).isAvailable() || !isSemanticLlmConfigured()) {
         if (isLocalSemanticEnabled(job.tenantId)) {
-            await runLocalSemanticAudit(job);
+            void runLocalSemanticAudit(job);
             return;
         }
         reportSemanticAuditSkipped('no_api_key', job.tenantId);
@@ -157,7 +140,7 @@ async function reserveAndEnqueue(job) {
     if (isSemanticCircuitOpen(job.tenantId)) {
         reportSemanticAuditSkipped('circuit_open', job.tenantId);
         if (isLocalSemanticEnabled(job.tenantId)) {
-            await runLocalSemanticAudit(job);
+            void runLocalSemanticAudit(job);
         }
         return;
     }

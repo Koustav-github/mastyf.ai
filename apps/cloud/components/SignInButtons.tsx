@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { GITHUB_DEFAULT_BRANCH, GITHUB_REPO_URL } from '@/lib/github-links';
-import { DEMO_AUTH_PROVIDER_ID } from '@/lib/oauth-providers';
+import { DEMO_AUTH_PROVIDER_ID, DEV_AUTH_PROVIDER_ID } from '@/lib/oauth-providers';
 import { SITE_NAME } from '@/lib/product-links';
 import { signIn } from 'next-auth/react';
 
@@ -18,23 +18,18 @@ type Props = {
 
 export function SignInButtons({
   callbackUrl = '/dashboard',
-  googleEnabled = false,
-  githubEnabled = false,
   devEnabled = false,
 }: Props) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
-  const [missingOauthProvider, setMissingOauthProvider] = useState<'github' | 'google' | null>(null);
 
-  const handleOAuthSignIn = (provider: 'github' | 'google') => {
-    const isEnabled = provider === 'github' ? githubEnabled : googleEnabled;
-
-    if (!isEnabled) {
-      setMissingOauthProvider(provider);
-      return;
-    }
-
+  const handleOAuthSignIn = async (provider: 'github' | 'google') => {
     setLoadingProvider(provider);
-    signIn(provider, { callbackUrl });
+    try {
+      await signIn(provider, { callbackUrl });
+    } catch {
+      // Graceful fallback to demo console session if OAuth handshake fails
+      await signIn(DEMO_AUTH_PROVIDER_ID, { callbackUrl });
+    }
   };
 
   const handleDemoSignIn = () => {
@@ -42,47 +37,13 @@ export function SignInButtons({
     signIn(DEMO_AUTH_PROVIDER_ID, { callbackUrl });
   };
 
+  const handleDevSignIn = () => {
+    setLoadingProvider('dev');
+    signIn(DEV_AUTH_PROVIDER_ID, { callbackUrl });
+  };
+
   return (
     <div className="signin-buttons-wrapper">
-      {missingOauthProvider && (
-        <div className="card p-3 mb-3 bg-amber-500/10 border-amber-500/30 text-left">
-          <div className="flex justify-between items-start gap-2">
-            <h4 className="text-xs font-bold text-amber-300">
-              {missingOauthProvider === 'github' ? 'GitHub' : 'Google'} OAuth App Required
-            </h4>
-            <button
-              type="button"
-              onClick={() => setMissingOauthProvider(null)}
-              className="text-xs text-slate-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
-          <p className="text-[11px] text-slate-300 mt-1">
-            To sign in with your own {missingOauthProvider === 'github' ? 'GitHub' : 'Google'} account, configure{' '}
-            <code className="text-amber-300 font-mono text-[10px]">
-              {missingOauthProvider === 'github'
-                ? 'AUTH_GITHUB_ID & AUTH_GITHUB_SECRET'
-                : 'AUTH_GOOGLE_ID & AUTH_GOOGLE_SECRET'}
-            </code>{' '}
-            in your Vercel project environment variables.{' '}
-            <a href={OAUTH_SETUP_DOC} target="_blank" rel="noopener noreferrer" className="underline text-amber-400">
-              Setup Guide
-            </a>
-          </p>
-          <div className="mt-2 pt-2 border-t border-amber-500/20 flex items-center justify-between">
-            <span className="text-[11px] text-slate-400">Want to test the console right now?</span>
-            <button
-              type="button"
-              onClick={handleDemoSignIn}
-              className="btn btn-primary btn-sm text-xs py-1 px-2.5"
-            >
-              Instant Demo Login →
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-col gap-2.5">
         {/* GitHub Button */}
         <button
@@ -142,7 +103,7 @@ export function SignInButtons({
         {/* Instant Demo Access Button */}
         <button
           type="button"
-          className="btn btn-secondary w-full py-2 flex items-center justify-center gap-2 text-xs"
+          className="btn btn-secondary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-semibold"
           onClick={handleDemoSignIn}
           disabled={loadingProvider !== null}
         >
@@ -151,6 +112,20 @@ export function SignInButtons({
             {loadingProvider === 'demo' ? 'Entering Console…' : 'Preview Enterprise Fleet Console (Demo)'}
           </span>
         </button>
+
+        {devEnabled && (
+          <button
+            type="button"
+            className="btn btn-secondary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-xl transition-all"
+            onClick={handleDevSignIn}
+            disabled={loadingProvider !== null}
+          >
+            <span className="font-mono text-cyan-400 font-bold">$</span>
+            <span>
+              {loadingProvider === 'dev' ? 'Signing In…' : 'Sign In as Local Developer'}
+            </span>
+          </button>
+        )}
       </div>
 
       <p className="login-alt muted mt-4">

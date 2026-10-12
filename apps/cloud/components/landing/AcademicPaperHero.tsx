@@ -9,6 +9,8 @@ import {
   PAPER_SUBTITLE,
   PAPER_TITLE,
   PAPER_VERSION,
+  SSRN_ABSTRACT_ID,
+  SSRN_PAPER_URL,
   ZENODO_DOI,
   ZENODO_URL,
 } from '@/lib/product-links';
@@ -138,6 +140,9 @@ export function AcademicPaperHero({ standalone = false }: { standalone?: boolean
           <span className="badge badge-active">Open-access preprint, v{PAPER_VERSION}</span>
           <a className="badge" href={`https://doi.org/${ZENODO_DOI}`} target="_blank" rel="noopener noreferrer">
             DOI {ZENODO_DOI}
+          </a>
+          <a className="badge" href={SSRN_PAPER_URL} target="_blank" rel="noopener noreferrer">
+            SSRN {SSRN_ABSTRACT_ID}
           </a>
           <span className="badge">CC-BY 4.0 open access</span>
         </div>

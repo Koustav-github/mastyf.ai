@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { BADGE_ALT_TEXT } from '@/lib/badge-brand';
@@ -51,7 +51,7 @@ export function BadgeLookupWidget({ variant = 'compact' }: Props) {
           href={trimmed ? verifyPath : '#'}
           className="socket-search-btn"
           aria-disabled={!trimmed}
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
             if (!trimmed) e.preventDefault();
           }}
         >

@@ -13,6 +13,9 @@ import { evaluateResponseDlp, responseDlpToLegacyDetections, } from './response-
 import { waitPolicyTimingEnvelopeAsync, waitPolicyTimingEnvelopeSync, } from './policy-timing-envelope.js';
 import { KeyedAsyncLock } from '../utils/keyed-async-lock.js';
 import { sharedRateLimitStore } from './rate-limit-store.js';
+import { isRedisConfigured } from '../utils/redis-client.js';
+import { getFlowHistory } from './session-flow-store.js';
+import { flowSessionKey } from './session-flow-guard.js';
 /**
  * Policy Engine — evaluates every intercepted tools/call against configured rules.
  * Supports three modes: audit (passive), warn (flag only), block (active enforcement).
@@ -171,6 +174,13 @@ export class PolicyEngine {
             const { decision: tokenBudgetDecision } = await evaluateRedisTokenBudget(context, deps);
             if (tokenBudgetDecision) {
                 return resolvePolicyPrecedence(opaDecision, tokenBudgetDecision);
+            }
+            if (isRedisConfigured()) {
+                const sessionKey = flowSessionKey(context);
+                try {
+                    await getFlowHistory(sessionKey);
+                }
+                catch { }
             }
             if (isPolicyEvalCacheEnabled()) {
                 const cacheKey = policyEvalCacheKey(context);

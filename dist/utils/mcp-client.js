@@ -37,17 +37,6 @@ export class McpClient {
             catch (err) {
                 return resolve({ success: false, authRequired: false, latencyMs: Date.now() - start, error: `Spawn failed: ${err instanceof Error ? err.message : String(err)}` });
             }
-            child.stdin?.on('error', () => { });
-            child.stdout?.on('error', () => { });
-            child.stderr?.on('error', () => { });
-            const safeWrite = (data) => {
-                try {
-                    if (child.stdin && !child.stdin.destroyed && child.stdin.writable) {
-                        child.stdin.write(data);
-                    }
-                }
-                catch { }
-            };
             const timeout = setTimeout(() => { try {
                 child.kill();
             }
@@ -62,7 +51,7 @@ export class McpClient {
             let authRequired = false, toolCount, toolNames, tools, serverVersion;
             let initId, listId;
             initId = randomUUID();
-            safeWrite(JSON.stringify({ jsonrpc: '2.0', id: initId, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'mastyf-ai', version: '0.3.0' } } }) + '\n');
+            child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: initId, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'mastyf-ai', version: '0.3.0' } } }) + '\n');
             rl.on('line', (line) => {
                 try {
                     const msg = JSON.parse(line.trim());
@@ -70,15 +59,15 @@ export class McpClient {
                         if (msg.error) {
                             authRequired = msg.error.code === -32000 || (typeof msg.error.message === 'string' && /auth/i.test(msg.error.message));
                             serverVersion = undefined;
-                            safeWrite(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+                            child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
                             listId = randomUUID();
-                            safeWrite(JSON.stringify({ jsonrpc: '2.0', id: listId, method: 'tools/list' }) + '\n');
+                            child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: listId, method: 'tools/list' }) + '\n');
                         }
                         else {
                             serverVersion = msg.result?.protocolVersion || msg.result?.serverInfo?.version;
-                            safeWrite(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+                            child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
                             listId = randomUUID();
-                            safeWrite(JSON.stringify({ jsonrpc: '2.0', id: listId, method: 'tools/list' }) + '\n');
+                            child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: listId, method: 'tools/list' }) + '\n');
                         }
                         return;
                     }

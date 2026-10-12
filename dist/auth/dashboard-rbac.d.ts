@@ -18,8 +18,6 @@ export declare function resolveRolesFromSessionPayload(payload: {
     [key: string]: unknown;
 }): DashboardRole[];
 export declare function resolveRolesForApiKey(apiKey: string, mapping?: Map<string, DashboardRole>): DashboardRole[];
-/** True when `presented` is the provisioned appliance key or an explicit mapped key. */
-export declare function isKnownDashboardApiKey(presented: string): boolean;
 /** Map IdP group claim to dashboard roles via MASTYF_AI_DASHBOARD_SSO_ROLE_MAP JSON. */
 export declare function resolveSsoRolesFromClaims(claims: Record<string, unknown>): DashboardRole[];
 /** tenant-admin may only act within session tenant. */

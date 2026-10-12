@@ -158,10 +158,7 @@ export class SessionTaintTracker {
                 }
             }
             if (matched) {
-                // Taint may flow to sources and internal tools. Enforce clearance only at egress sinks.
-                if (profile.type !== 'sink') {
-                    continue;
-                }
+                // Fragment match detected! Check if sink tool has clearance or declassification grant
                 for (const tag of fragment.secrecyTags) {
                     const hasClearance = profile.egressClearance.has(tag);
                     const hasGrant = this.hasValidDeclassificationGrant(state, tag, toolName);

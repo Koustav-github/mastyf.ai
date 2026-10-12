@@ -74,10 +74,8 @@ export function evaluateLoopAnomalyGuard(ctx) {
             similarRecent++;
         }
     }
-    const recentCalls = history.filter((e) => now - e.at <= 60_000);
     const tokensPerMin = tokensInLastMinute(history, now) + (ctx.requestTokens ?? 0);
-    // A single oversized request is token-budget's job. Loop burn needs a multi-call window.
-    if (recentCalls.length >= 3 && tokensPerMin >= LOOP_TOKENS_PER_MIN()) {
+    if (tokensPerMin >= LOOP_TOKENS_PER_MIN()) {
         return {
             action: 'block',
             rule: 'loop-anomaly-perturbation',

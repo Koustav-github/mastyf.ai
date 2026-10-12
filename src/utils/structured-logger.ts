@@ -65,11 +65,45 @@ export interface ErrorLogEntry {
   stack?: string;
 }
 
+/**
+ * Recursively sanitizes data structures for BigQuery and SIEM export.
+ * BigQuery does not support nested arrays (lists of lists / ARRAY<ARRAY<T>>).
+ * Any array containing another array is safely transformed so inner arrays are serialized to JSON strings.
+ */
+export function sanitizeForLogIngestion(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    if (value.some((item) => Array.isArray(item))) {
+      return value.map((item) => (Array.isArray(item) ? JSON.stringify(item) : sanitizeForLogIngestion(item)));
+    }
+    return value.map((item) => sanitizeForLogIngestion(item));
+  }
+  if (typeof value === 'object') {
+    const sanitizedObj: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      sanitizedObj[k] = sanitizeForLogIngestion(v);
+    }
+    return sanitizedObj;
+  }
+  return value;
+}
+
 export class StructuredLogger {
   static logPolicyDecision(entry: AuditLogEntry): void {
-    logger.info(withTraceCorrelation(entry));
+    const rawArgs = entry.context?.arguments;
+    const sanitizedEntry = {
+      ...entry,
+      context: entry.context
+        ? {
+            ...entry.context,
+            arguments: {},
+            arguments_json: rawArgs ? JSON.stringify(rawArgs) : '{}',
+          }
+        : entry.context,
+    };
+    logger.info(withTraceCorrelation(sanitizedEntry));
     import('./enterprise-bootstrap.js').then(({ exportSiemEvent }) => {
-      exportSiemEvent('policy_decision', withTraceCorrelation(entry) as unknown as Record<string, unknown>).catch((e: unknown) => {
+      exportSiemEvent('policy_decision', withTraceCorrelation(sanitizedEntry) as unknown as Record<string, unknown>).catch((e: unknown) => {
         Logger.error(`[structured-logger] SIEM export failed: ${e instanceof Error ? e.message : String(e)}`);
       });
     }).catch((e: unknown) => {

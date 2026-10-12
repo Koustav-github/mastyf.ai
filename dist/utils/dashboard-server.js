@@ -52,13 +52,11 @@ import { isLegacyArtifactsAllowed, isSwarmArtifactVisibleForSession, } from './s
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 function deployDir() {
-    const fromEnv = process.env['MASTYF_AI_DEPLOY_DIR'];
     const candidates = [
-        fromEnv ? resolve(fromEnv) : '',
         resolve(__dirname, '..', '..', 'deploy'),
         resolve(__dirname, '..', 'deploy'),
         resolve(process.cwd(), 'deploy'),
-    ].filter(Boolean);
+    ];
     for (const p of candidates) {
         if (existsSync(p))
             return p;
@@ -170,13 +168,6 @@ function tryServeDashboardSpa(url, res, opts) {
             return true;
         }
     }
-    if (url === '/logo.png' || url === '/logo.jpeg' || url === '/logo.jpg' || url === '/icon.png') {
-        const rel = url.slice(1);
-        if (serveDashboardAsset(spaRoot, rel, res, method))
-            return true;
-        if (spaRoot !== legacyRoot && serveDashboardAsset(legacyRoot, rel, res, method))
-            return true;
-    }
     if (!url.startsWith('/dashboard-spa/'))
         return false;
     const rel = url.replace(/^\/dashboard-spa\//, '');
@@ -247,20 +238,9 @@ function tryServeDocsAsset(url, res, method = 'GET') {
     }
     return true;
 }
-function loopbackDashboardOrigins() {
-    const ports = new Set(['4000', '3000', '14000']);
-    const extra = String(process.env['DASHBOARD_PORT'] || process.env['MASTYF_AI_PORT'] || '').trim();
-    if (/^\d+$/.test(extra))
-        ports.add(extra);
-    const origins = [];
-    for (const port of ports) {
-        origins.push(`http://localhost:${port}`, `http://127.0.0.1:${port}`);
-    }
-    return origins;
-}
 function getCorsOrigin(req) {
     const allowed = process.env['DASHBOARD_ALLOWED_ORIGINS']?.split(',').map(s => s.trim()).filter(Boolean)
-        || loopbackDashboardOrigins();
+        || ['http://localhost:4000', 'http://127.0.0.1:4000'];
     const origin = req.headers.origin;
     if (origin && allowed.includes(origin))
         return origin;
@@ -783,7 +763,10 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
                         "'self'",
                         'ws:',
                         'wss:',
-                        ...loopbackDashboardOrigins(),
+                        'http://localhost:4000',
+                        'http://127.0.0.1:4000',
+                        'http://localhost:3000',
+                        'http://127.0.0.1:3000',
                         'http://localhost:9090',
                     ],
                     frameAncestors: ["'none'"],
@@ -914,8 +897,11 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
                     res.end(auth.getLoginPageHtml(undefined, csrfToken));
                 }
                 else {
-                    res.writeHead(302, { 'Location': '/' });
-                    res.end();
+                    res.writeHead(200, {
+                        'Content-Type': 'text/html; charset=utf-8',
+                        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+                    });
+                    res.end(loadDashboardHtml());
                 }
                 return;
             }
@@ -1002,6 +988,18 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
                 writeJson(res, 404, { error: 'Dashboard API disabled; WebSocket at /ws only' });
                 return;
             }
+            // SPA HTML shell is served on root so client-side React / LoginGate can execute
+            if (url === '/' || url === '/dashboard.html') {
+                setCors();
+                res.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                });
+                res.end(loadDashboardHtml());
+                return;
+            }
             if (url.startsWith('/api/') && !assertLicensedApi(url, res, setCors)) {
                 return;
             }
@@ -1012,24 +1010,19 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
             if (!authResult.authenticated) {
                 setCors();
                 if (req.headers['accept']?.includes('text/html')) {
-                    res.writeHead(302, { 'Location': '/login' });
-                    res.end();
+                    if (auth.hasJwtSessionAuth()) {
+                        res.writeHead(302, { 'Location': '/login' });
+                        res.end();
+                        return;
+                    }
+                    res.writeHead(200, {
+                        'Content-Type': 'text/html; charset=utf-8',
+                        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+                    });
+                    res.end(loadDashboardHtml());
+                    return;
                 }
-                else {
-                    writeJson(res, 401, { error: 'Authentication required', reason: authResult.reason });
-                }
-                return;
-            }
-            // SPA assets also need no-cache to avoid stale builds
-            if (url === '/' || url === '/dashboard.html') {
-                setCors();
-                res.writeHead(200, {
-                    'Content-Type': 'text/html; charset=utf-8',
-                    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                });
-                res.end(loadDashboardHtml());
+                writeJson(res, 401, { error: 'Authentication required', reason: authResult.reason });
                 return;
             }
             const roles = auth.getRolesForAuth(authResult);
@@ -1714,33 +1707,8 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
             if (url === '/api/fleet/rug-pull-status' && method === 'GET') {
                 setCors();
                 const { getRugPullStatus } = await import('../audit/rug-pull-store.js');
-                const { readFleetState } = await import('../fleet/fleet-state.js');
                 const status = getRugPullStatus();
-                const fleet = readFleetState();
-                let watched = fleet?.servers?.length ?? 0;
-                if (!watched) {
-                    try {
-                        const fed = await resolveChartContext(requestTenantId, 7);
-                        if (fed.db) {
-                            const srvs = await getAllActiveServerNames(fed.db, requestTenantId);
-                            watched = srvs.filter((s) => !s.includes('..') && !s.includes('passwd') && !s.includes('PROBE')).length;
-                        }
-                    }
-                    catch {
-                        // fallback
-                    }
-                }
-                if (!watched)
-                    watched = 14;
-                writeJson(res, 200, {
-                    ...status,
-                    servers_watched: watched,
-                    watched,
-                    totalServers: watched,
-                    open_alerts: status.unreviewed ?? 0,
-                    openAlerts: status.unreviewed ?? 0,
-                    alerts: status.unreviewed ?? 0,
-                });
+                writeJson(res, 200, status);
                 return;
             }
             if (url === '/api/fleet/rug-pull-servers' && method === 'GET') {
@@ -3026,11 +2994,7 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
                     const { getRuntimeModelPricing } = await import('../services/runtime-model-pricing.js');
                     const active = await getRuntimeModelPricing().getActivePricing();
                     for (const srv of srvs) {
-                        if (srv.includes('..') || srv.includes('passwd') || srv.includes('PROBE'))
-                            continue;
                         const windowRecs = windowRecords.filter((r) => r.serverName === srv && Date.parse(String(r.timestamp || '')) >= cutoff);
-                        if (windowRecs.length === 0)
-                            continue;
                         const sum = summarizeRecords(windowRecs);
                         reps.push({
                             name: srv,
@@ -3046,26 +3010,17 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
                     const spanHours = recordsTimeSpanHours(windowRecords);
                     let burnRatePerHour = null;
                     let projectedMonthly = null;
-                    if (totalCost != null && totalCost > 0) {
+                    if (wantProjections && totalCost != null && totalCost > 0) {
                         burnRatePerHour = computeBurnRatePerHour(totalCost, windowRecords);
                         let proj = computeProjectedMonthly(totalCost, windowRecords);
-                        if (displayCoverage.coveragePct < 50 || spanHours < 0.1) {
+                        if (displayCoverage.coveragePct < 50 || spanHours < 24) {
                             proj = 0;
                         }
                         projectedMonthly = proj > 0 ? proj : null;
                     }
-                    const usedModels = Array.from(new Set(windowRecords
-                        .map((r) => r.model)
-                        .filter((m) => typeof m === 'string' && m.trim().length > 0 && !m.includes('deepseek'))));
-                    let pricingModel = active
+                    const pricingModel = active
                         ? `${active.displayName} (${active.source})`
                         : 'per-call stored rates';
-                    if (usedModels.length > 1) {
-                        pricingModel = `Multi-Model Fleet (${usedModels.slice(0, 3).join(', ')}${usedModels.length > 3 ? '…' : ''})`;
-                    }
-                    else if (usedModels.length === 1) {
-                        pricingModel = `${usedModels[0]} (litellm)`;
-                    }
                     const budgetUsd = parseCostBudgetUsd();
                     const budgetAlerts = [];
                     if (budgetUsd != null && totalCost != null && totalCost > budgetUsd) {
@@ -3124,8 +3079,6 @@ export async function startDashboardServer(port = 4000, policyWatcher, dashboard
                         const srvs = await getAllActiveServerNames(db, requestTenantId);
                         const byTool = new Map();
                         for (const srv of srvs) {
-                            if (srv.includes('..') || srv.includes('passwd') || srv.includes('PROBE'))
-                                continue;
                             const recs = await db.getCallRecordsForServer(srv, undefined, requestTenantId);
                             for (const r of recs) {
                                 const ts = Date.parse(String(r.timestamp || ''));

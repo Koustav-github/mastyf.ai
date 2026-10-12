@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import { Logger } from '../utils/logger.js';
 import { fetchSignedRemotePricing } from './pricing-remote.js';
 import { detectZeroPricingAlert } from './pricing-signature.js';
-// Last reviewed date for STATIC_PRICING — update when the table is refreshed.
+// Last reviewed date for live pricing freshness checks.
 export const PRICING_TABLE_DATE = '2025-03-01';
 export const PRICING_STALENESS_DAYS = 30;
 export function getPricingStalenessWarning() {
@@ -14,57 +14,6 @@ export function getPricingStalenessWarning() {
     }
     return null;
 }
-// Last-reviewed rates (2025-03-01). Used when live litellm/remote pricing is unavailable.
-const STATIC_PRICING = {
-    'gpt-4.5-preview': { input: 75.00, output: 150.00 },
-    'gpt-4-turbo': { input: 10.00, output: 30.00 },
-    'gpt-4o': { input: 2.50, output: 10.00 },
-    'gpt-4o-mini': { input: 0.15, output: 0.60 },
-    'o1-preview': { input: 15.00, output: 60.00 },
-    'o1-mini': { input: 3.00, output: 12.00 },
-    'claude-3-opus': { input: 15.00, output: 75.00 },
-    'claude-3-5-sonnet': { input: 3.00, output: 15.00 },
-    'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
-    'claude-3-5-haiku': { input: 0.80, output: 4.00 },
-    'claude-3-7-sonnet': { input: 3.00, output: 15.00 },
-    'claude-3-7-sonnet-20250219': { input: 3.00, output: 15.00 },
-    'claude-sonnet-4': { input: 3.00, output: 15.00 },
-    'claude-opus-4': { input: 15.00, output: 75.00 },
-    'gemini-2.5-pro': { input: 1.25, output: 5.00 },
-    'gemini-2.0-flash': { input: 0.10, output: 0.40 },
-    'gemini-2.0-flash-lite': { input: 0.075, output: 0.30 },
-    'gemini-1.5-pro': { input: 1.25, output: 5.00 },
-    'gemini-1.5-flash': { input: 0.075, output: 0.30 },
-    'gemini-2.5-flash': { input: 0.15, output: 0.60 },
-    'gemini-pro': { input: 1.25, output: 5.00 },
-    'deepseek-chat': { input: 0.28, output: 0.42 },
-    'deepseek-reasoner': { input: 0.55, output: 2.19 },
-    'grok-3': { input: 3.00, output: 15.00 },
-    'grok-2': { input: 2.00, output: 10.00 },
-    'grok-2-mini': { input: 0.20, output: 0.80 },
-    'llama-3.1-405b': { input: 3.50, output: 3.50 },
-    'llama-3.1-70b': { input: 0.59, output: 0.79 },
-    'llama-3.3-70b': { input: 0.59, output: 0.79 },
-    'llama-3.1-8b': { input: 0.18, output: 0.18 },
-    'mistral-large': { input: 4.00, output: 12.00 },
-    'mistral-small': { input: 1.00, output: 3.00 },
-    'gpt-3.5-turbo': { input: 0.50, output: 1.50 },
-    'gpt-4': { input: 30.00, output: 60.00 },
-    'gpt-4-32k': { input: 60.00, output: 120.00 },
-    'claude-3-sonnet': { input: 3.00, output: 15.00 },
-    'claude-3-haiku': { input: 0.25, output: 1.25 },
-    'o3-mini': { input: 1.10, output: 4.40 },
-    'o3': { input: 10.00, output: 40.00 },
-    'codestral': { input: 0.30, output: 0.90 },
-    'command-r-plus': { input: 3.00, output: 15.00 },
-    'command-r': { input: 0.50, output: 1.50 },
-    'sonar': { input: 1.00, output: 1.00 },
-    'sonar-pro': { input: 3.00, output: 15.00 },
-    'qwen3:8b': { input: 0.00, output: 0.00 },
-    'qwen2.5:1.5b': { input: 0.00, output: 0.00 },
-    'mastyf-guard-v6': { input: 0.00, output: 0.00 },
-};
-const DEFAULT_UNKNOWN_PRICING = { input: 10.0, output: 30.0 };
 // Live pricing from litellm, cached with 1-hour TTL
 const pricingCache = new Map();
 const CACHE_TTL_MS = 3600_000; // 1 hour
@@ -73,21 +22,20 @@ export class PricingClient {
     liveModels = [];
     /**
      * Sync cost estimate (per-million tokens). Third arg `true` = output pricing.
-     * Uses live/custom rates when present, otherwise the last-reviewed static table.
+     * Uses configured live/custom pricing only. Unknown pricing is unavailable.
      */
     calculateCost(tokens, model, isOutput = false) {
-        const pricing = this.getPricingForModel(model) ?? DEFAULT_UNKNOWN_PRICING;
+        const pricing = this.getPricingForModel(model);
+        if (!pricing)
+            return 0;
         const rate = isOutput ? pricing.output : pricing.input;
         return (tokens / 1_000_000) * rate;
     }
     getPricingForModel(model) {
-        return this.customPricing.get(model)
-            ?? STATIC_PRICING[model]
-            ?? null;
+        return this.customPricing.get(model) ?? null;
     }
     listModels() {
         const names = new Set([
-            ...Object.keys(STATIC_PRICING),
             ...this.customPricing.keys(),
             ...this.liveModels,
         ]);
@@ -130,18 +78,15 @@ export class PricingClient {
         this.liveModels = fetched;
     }
     /**
-     * Get pricing for a model (static table first, then cached, then litellm fallback).
+     * Get live pricing for a model via litellm.
      */
     async getModelPricing(model) {
-        const staticPrice = this.getPricingForModel(model);
-        if (staticPrice)
-            return { ...staticPrice, isLive: false };
         // Check cache
         const cached = pricingCache.get(model);
         if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
             return { input: cached.input, output: cached.output, isLive: true };
         }
-        // Try litellm for live pricing only if not in static table
+        // Try litellm for live pricing
         const livePrice = await this.fetchLivePricing(model);
         if (livePrice) {
             pricingCache.set(model, { input: livePrice.input, output: livePrice.output, fetchedAt: Date.now() });
@@ -221,7 +166,7 @@ except Exception as e:
         return (inputTokens / 1_000_000) * pricing.input + (outputTokens / 1_000_000) * pricing.output;
     }
     getAvailableModels() {
-        return Object.keys(STATIC_PRICING);
+        return this.listModels();
     }
     getPricingDate() {
         return PRICING_TABLE_DATE;

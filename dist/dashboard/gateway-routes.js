@@ -186,23 +186,11 @@ export async function handleGatewayApiRoutes(params) {
                 writeJson(res, 200, { available: true, ...status, servers_count: serversCount });
             }
             catch (err) {
-                const isUnavailable = err instanceof GatewayUnavailableError ||
-                    err instanceof GatewayVersionMismatchError ||
-                    (typeof err === 'object' &&
-                        err !== null &&
-                        (('name' in err &&
-                            (err.name === 'GatewayUnavailableError' ||
-                                err.name === 'GatewayVersionMismatchError')) ||
-                            ('code' in err &&
-                                (err.code === 'GATEWAY_UNAVAILABLE' ||
-                                    err.code === 'GATEWAY_VERSION_MISMATCH' ||
-                                    err.code === 'TOKEN_MISSING'))));
-                if (isUnavailable) {
-                    const errObj = err;
+                if (err instanceof GatewayUnavailableError || err instanceof GatewayVersionMismatchError) {
                     writeJson(res, 200, {
                         available: false,
-                        code: errObj.code || 'GATEWAY_UNAVAILABLE',
-                        message: errObj.message || 'Gateway unavailable',
+                        code: err.code,
+                        message: err.message,
                         environment_state: 'UNKNOWN',
                         intelligence: {
                             tier: 'unknown',
@@ -815,29 +803,6 @@ export async function handleGatewayApiRoutes(params) {
             writeJson(res, 200, explanation);
             return true;
         }
-        // ── POST /api/gateway/agent-chat ───────────────────────────────────────────
-        if (pathname === '/api/gateway/agent-chat' && method === 'POST') {
-            const body = await readBody(req);
-            const message = String(body['message'] || '').trim();
-            const sessionId = body['sessionId'] ? String(body['sessionId']) : undefined;
-            const principalId = body['principalId'] ? String(body['principalId']) : undefined;
-            const mock = Boolean(body['mock']);
-            if (!message) {
-                writeJson(res, 400, { error: 'message required' });
-                return true;
-            }
-            try {
-                const result = await client.agentChat({ message, sessionId, principalId, mock });
-                writeJson(res, 200, result);
-            }
-            catch (err) {
-                writeJson(res, err.statusCode || 500, {
-                    error: err.message || 'Agent chat invocation failed',
-                    code: err.code || 'AGENT_CHAT_FAILED',
-                });
-            }
-            return true;
-        }
         // ── POST /api/gateway/chat ─────────────────────────────────────────────────
         if (pathname === '/api/gateway/chat' && method === 'POST') {
             const body = await readBody(req);
@@ -1045,11 +1010,7 @@ Start Ollama / configure a local model for conversational answers. Until then, u
             const allowedActions = new Set([
                 'allow',
                 'allow_once',
-                'allow_always',
-                'always',
                 'block',
-                'block_permanently',
-                'permanent_block',
                 'allow_similar',
                 'similar',
                 'session',
@@ -2270,10 +2231,9 @@ Start Ollama / configure a local model for conversational answers. Until then, u
         // Unified stack health for UI + desktop (Gateway :8443 · BFF :4000 · Guard).
         // Never invents engine — mirrors live status intelligence only.
         if (pathname === '/api/gateway/runtime-health' && method === 'GET') {
-            const gatewayPort = String(process.env['MASTYF_GATEWAY_PORT'] || '').trim();
             const gatewayUrl = (process.env['MASTYF_GATEWAY_URL'] ||
                 process.env['MASTYF_CONTROL_URL'] ||
-                (gatewayPort ? `http://127.0.0.1:${gatewayPort}` : 'http://127.0.0.1:8443')).replace(/\/$/, '');
+                'http://127.0.0.1:8443').replace(/\/$/, '');
             let gatewayOk = false;
             let gatewayDetail = null;
             try {

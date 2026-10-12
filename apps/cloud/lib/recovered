@@ -1,0 +1,214 @@
+[Product](https://mastyf.ai#product)
+[Trust scores](https://mastyf.ai/certified)
+[Paper](https://mastyf.ai#paper)
+[Pricing](https://mastyf.ai#pricing)
+[Architecture](https://mastyf.ai#architecture)
+[Trust](https://mastyf.ai#trust)
+[Contact](https://mastyf.ai/#contact)
+[GitHub](https://github.com/mastyf-ai/mastyf.ai)
+[Sign in free](https://mastyf.ai/login)
+MCP security platformOpen source
+
+# Perimeter securityfor your AI.
+
+Runtime enforcement, policy control, and trust scores for every MCP tool call. mastyf.ai intercepts agent actions, blocks violations before they execute, and scores npm packages so teams ship without guessing.
+- Runtime enforcementBlockGuard intercepts every tools/call before it reaches your infrastructure — fail-closed by default.
+- Package trust scoresInstant 0–100 scores and public badges for any npm MCP package — no account required.
+- Cloud control planePolicy, fleet, keys, and evidence from one console — open source and self-hostable.
+[Look up a package](https://mastyf.ai/certified)
+[Sign in free](https://mastyf.ai/login)
+[View on GitHub](https://github.com/mastyf-ai/mastyf.ai)
+[✓Paper DOI 10.5281/zenodo.22206627](https://zenodo.org/records/22206627)
+[✓Model Rudraneel93/mastyf-guard-1.5b](https://huggingface.co/Rudraneel93/mastyf-guard-1.5b)
+[✓97.5% hybrid coverage · 0% FPR](https://mastyf.ai#paper)
+[✓Public trust badges](https://mastyf.ai/certified)
+Path traversal · /etc/passwd
+Try it now — no account required
+[View score](https://mastyf.ai)
+
+## One platform. Every layer of MCP security.
+
+Runtime enforcement, policy control, ops visibility, and public trust scores — built from the open-source mastyf.ai repo.
+
+### Every tool call inspected before it runs
+
+mastyf.ai sits between your AI client and MCP servers. BlockGuard enforces policy synchronously on every call — prompt injection, path traversal, secret exfiltration, and shell commands are stopped before they reach your infrastructure.
+- Three-layer detection: regex, schema, semantic LLM
+- Fail-closed — blocked calls never execute
+- Full audit trail with allow/block status
+[See enforcement docs →](https://github.com/mastyf-ai/mastyf.ai#how-enforcement-works)
+- BLOCKEDfilesystem/readblock-sensitive-paths/etc/passwd
+
+```
+/etc/passwd
+```
+
+BlockGuard enforced blocked on filesystem/read
+
+```
+filesystem/read
+```
+
+Why mastyf
+
+## Built for agents that act — not just chat
+
+Generic AI firewalls describe risk. mastyf enforces on every MCP tool call with repo-backed policy, corpus gates, and a Security Swarm that compounds with every attack.
+
+### No perimeter
+AI agents read files, push code, and query databases autonomously — with no enforcement layer between the agent and your infrastructure.
+
+### No audit trail
+When something goes wrong, teams cannot answer what action the agent took, on behalf of which user, in which system.
+
+### No trust signal
+Teams have no simple way to verify which MCP packages are safe before agents connect to production data.
+
+### Enforce on every call
+BlockGuard sits in the MCP path and stops violations before execution. Pattern detection runs in microseconds; semantic LLM audit catches borderline cases async.
+1. 1Deploy the proxyRun mastyf.ai between your AI client and MCP servers — Docker, source build, or connect to the cloud console. Every tool call flows through BlockGuard.
+2. 2Define your policyStart in audit mode to see what your agents do. Tune rules in YAML, then switch to block mode for production enforcement.
+3. 3Score, badge, and shipLook up npm MCP packages for trust scores, embed badges in READMEs, and let the Security Swarm keep learning from every block.
+
+### Deploy the proxy
+Run mastyf.ai between your AI client and MCP servers — Docker, source build, or connect to the cloud console. Every tool call flows through BlockGuard.
+
+### Define your policy
+Start in audit mode to see what your agents do. Tune rules in YAML, then switch to block mode for production enforcement.
+
+### Score, badge, and ship
+Look up npm MCP packages for trust scores, embed badges in READMEs, and let the Security Swarm keep learning from every block.
+- Prompt injection
+- Path traversal
+- Secret exfiltration
+- Shell injection
+- Data exfiltration
+- SSRF
+- Encoding evasion
+- Cost abuse
+- Rug-pull attacks
+
+## Interactive architecture
+
+Holistic MCP protection across ingress, economics, policy, intelligence, upstream, and egress. Every tools/call on all transports flows through the defense orchestrator.
+
+### Security Swarm
+CI validation and runtime learning — four feedback loops that compound with every attack.
+
+### Scout Agent
+SAST scan, dependency audit, and config review on every PR.
+- Corpus Agent
+
+## Trust, compliance, and deployment proof
+
+Real capabilities from the open-source repo — fleet management, evidence packs, economics controls, and human-reviewed threat discovery.
+
+### Multi-server MCP protection at scale
+
+Auto-discover MCP servers across your org, patch IDE configs, and enforce policy fleet-wide from the cloud console. One control plane for every agent endpoint.
+- Auto-discovery of MCP endpoints
+- IDE config patching (Cursor, Claude Desktop)
+- Centralized policy rollout
+[Read the docs →](https://github.com/mastyf-ai/mastyf.ai/blob/main/docs/REAL_WORLD_INTEGRATION.md)
+Research preprint · Zenodo DOI 10.5281/zenodo.22206627 · CC-BY 4.0
+
+## The security your agents were missing
+
+Give your AI tools a real perimeter. Every call is checked against what it was actually allowed to do — so hijacks fail, data stays inside, and your team ships faster.
+
+### Why this matters to you
+Your AI agent reads docs, calls tools, and moves money — but it cannot tell a trusted instruction from attacker data hidden in a webpage or tool output. Mastyf Guard puts a perimeter around every tool call so bad instructions never execute, and good work never gets blocked.
+- Stops hijacked tools coldEven if the model is tricked, out-of-scope tools cannot run — zero chance.
+- Catches data theft across toolsTracks data across steps and blocks leaks before they leave — 1,152 cases proven.
+
+### What you get — proven at scale
+Four simple guarantees: right destination, right scope, no privilege creep, spend stays capped. Routine work flows with 0% extra AI cost.
+[Read the paper (PDF)](https://zenodo.org/api/records/22206627/files/mastyf-guard.pdf/content)
+[Zenodo · DOI 10.5281/zenodo.22206627](https://zenodo.org/records/22206627)
+[Model on Hugging Face](https://huggingface.co/Rudraneel93/mastyf-guard-1.5b)
+Das, Rudraneel. “Capability-Mediated Perimeters for Secure AI Agent Tool Execution.” Zenodo Research Monograph, v2.0, 2026. doi: [10.5281/zenodo.22206627](https://doi.org/10.5281/zenodo.22206627) · CC-BY 4.0 · [mastyf-guard.pdf](https://zenodo.org/api/records/22206627/files/mastyf-guard.pdf/content)
+
+## From research preview to production
+
+The 1.5B guard is gated on Hugging Face for research and enterprise preview. Commercial production requires an active Mastyf Enterprise Pass.
+
+### Research & Preview
+Try the frozen v2.0 baseline locally.
+- Gated HF repo — share contact to access weights
+- Ollama, vLLM, llama.cpp, Docker — Q4_K_M 986 MB
+- Paper + 9 figures + 28,450 train / 3,550 val
+[Request access on HF](https://huggingface.co/Rudraneel93/mastyf-guard-1.5b)
+
+### Enterprise Pass
+Commercial production deployments.
+- License key for production tool dispatch
+- Fleet policy, evidence packs, support
+- Cloud console — policy, keys, fleet, audit
+[Get Enterprise Pass — Lemon Squeezy](https://mastyfai.lemonsqueezy.com/checkout/buy/49323daa-90ef-4157-90b9-8706acd13fe6)
+
+### Open source
+Perimeter proxy, swarm, and trust scores.
+- AGPL 3.0 — self-hostable
+- 228/228 corpus gates · Security Swarm
+- github.com/mastyf-ai/mastyf.ai
+[View on GitHub](https://github.com/mastyf-ai/mastyf.ai)
+
+## Cloud console
+Sign in with Google or GitHub to edit policy YAML, copy tenant env snippets, rotate API keys, and manage your fleet. Free — no credit card.
+[Sign in free](https://mastyf.ai/login)
+[Connect self-hosted proxy](https://mastyf.ai/dashboard/connect)
+
+## Your questions, answered
+Runtime enforcement, trust scores, Security Swarm, and deployment.
+mastyf.ai is perimeter security for AI agents using MCP. It intercepts every tool call, enforces your security policy, blocks violations before execution, and provides trust scores for npm MCP packages — all from one open-source platform.
+
+## Contact us
+Questions about scores, badges, the cloud console, or privacy requests?
+[Email mastyf.support@gmail.com](mailto:mastyf.support@gmail.com)
+
+## Ready to score your MCP servers?
+Look up any npm package free — no account required.
+[Look up a package](https://mastyf.ai/certified)
+[Sign in free](https://mastyf.ai/login)
+[GitHub](https://github.com/mastyf-ai/mastyf.ai)
+Perimeter security for AI agents. Runtime enforcement, Defense Fabric, trust scores, and a self-improving Security Swarm — open source and enterprise-ready.
+[mastyf.support@gmail.com](mailto:mastyf.support@gmail.com)
+
+#### Product
+- [Trust scores](https://mastyf.ai/certified)
+- [Cloud console](https://mastyf.ai/dashboard)
+- [Sign in free](https://mastyf.ai/login)
+- [Platform overview](https://mastyf.ai/#product)
+- [Defense Fabric](https://mastyf.ai/#architecture)
+[Trust scores](https://mastyf.ai/certified)
+[Cloud console](https://mastyf.ai/dashboard)
+[Sign in free](https://mastyf.ai/login)
+[Platform overview](https://mastyf.ai/#product)
+[Defense Fabric](https://mastyf.ai/#architecture)
+
+#### Resources
+- [GitHub](https://github.com/mastyf-ai/mastyf.ai)
+- [API docs](https://mastyf.ai/openapi.yaml)
+- [Walkthrough](https://mastyf.ai/tutorials/site-walkthrough)
+- [Evidence pack](https://github.com/mastyf-ai/mastyf.ai/blob/main/docs/ENTERPRISE_EVIDENCE_PACK.md)
+[GitHub](https://github.com/mastyf-ai/mastyf.ai)
+[API docs](https://mastyf.ai/openapi.yaml)
+[Walkthrough](https://mastyf.ai/tutorials/site-walkthrough)
+[Evidence pack](https://github.com/mastyf-ai/mastyf.ai/blob/main/docs/ENTERPRISE_EVIDENCE_PACK.md)
+
+#### Research
+- [Zenodo · 10.5281/zenodo.22206627](https://zenodo.org/records/22206627)
+- [Paper PDF](https://zenodo.org/api/records/22206627/files/mastyf-guard.pdf/content)
+- [HF: mastyf-guard-1.5b](https://huggingface.co/Rudraneel93/mastyf-guard-1.5b)
+- [Contact us](mailto:mastyf.support@gmail.com)
+- [Terms](https://mastyf.ai/terms)
+- [Privacy](https://mastyf.ai/privacy)
+[Zenodo · 10.5281/zenodo.22206627](https://zenodo.org/records/22206627)
+[Paper PDF](https://zenodo.org/api/records/22206627/files/mastyf-guard.pdf/content)
+[HF: mastyf-guard-1.5b](https://huggingface.co/Rudraneel93/mastyf-guard-1.5b)
+[Contact us](mailto:mastyf.support@gmail.com)
+[Terms](https://mastyf.ai/terms)
+[Privacy](https://mastyf.ai/privacy)
+[Terms](https://mastyf.ai/terms)
+[Privacy](https://mastyf.ai/privacy)
+[GitHub](https://github.com/mastyf-ai/mastyf.ai)

@@ -46,37 +46,10 @@ export class RuntimeModelPricing {
         }
         return null;
     }
-    /** Map agent or client name to appropriate model */
-    resolveAgentModel(agentOrClientName) {
-        if (!agentOrClientName)
-            return null;
-        const name = agentOrClientName.toLowerCase();
-        if (name.includes('cursor'))
-            return 'claude-3-5-sonnet';
-        if (name.includes('claude'))
-            return 'claude-3-5-sonnet';
-        if (name.includes('dev-tool') || name.includes('dev_tool') || name.includes('ci-runner'))
-            return 'gpt-4o';
-        if (name.includes('analyst'))
-            return 'claude-3-5-haiku';
-        if (name.includes('mcp-client') || name.includes('browser'))
-            return 'gemini-2.0-flash';
-        if (name.includes('weather') || name.includes('search'))
-            return 'gpt-4o-mini';
-        if (name.includes('guard') || name.includes('mastyf') || name.includes('local'))
-            return 'qwen3:8b';
-        return null;
-    }
-    async resolveForMessage(msg, clientOrServer) {
+    async resolveForMessage(msg) {
         const fromMsg = msg ? this.extractModelFromMessage(msg) : null;
         if (fromMsg) {
             const resolved = await this.resolveModelId(fromMsg);
-            if (resolved)
-                return resolved;
-        }
-        const fromAgent = this.resolveAgentModel(clientOrServer);
-        if (fromAgent) {
-            const resolved = await this.resolveModelId(fromAgent);
             if (resolved)
                 return resolved;
         }
@@ -90,11 +63,9 @@ export class RuntimeModelPricing {
     }
     /** Resolve rates for a model without calling getActivePricing (avoids detectActivePricing ↔ resolve recursion). */
     async resolveModelIdDirect(modelId) {
-        if (process.env.MASTYF_AI_ENABLE_CLINE_PRICING === 'true') {
-            const cline = this.readClinePricing();
-            if (cline && this.modelsMatch(cline.modelId, modelId)) {
-                return cline;
-            }
+        const cline = this.readClinePricing();
+        if (cline && this.modelsMatch(cline.modelId, modelId)) {
+            return cline;
         }
         const live = await this.pricingClient.getModelPricing(modelId);
         if (live) {
@@ -106,22 +77,6 @@ export class RuntimeModelPricing {
                 source: 'litellm',
                 isLive: live.isLive,
             };
-        }
-        // Partial matching fallback (e.g. claude-3-5-sonnet-20241022)
-        for (const known of this.pricingClient.listModels()) {
-            if (this.modelsMatch(known, modelId)) {
-                const rates = this.pricingClient.getPricingForModel(known);
-                if (rates) {
-                    return {
-                        modelId,
-                        displayName: known,
-                        inputPerM: rates.input,
-                        outputPerM: rates.output,
-                        source: 'litellm',
-                        isLive: false,
-                    };
-                }
-            }
         }
         return null;
     }
@@ -139,13 +94,11 @@ export class RuntimeModelPricing {
             priced: true,
         };
     }
-    async computeCostForCall(inputTokens, outputTokens, msg, clientOrServer) {
-        const pricing = await this.resolveForMessage(msg, clientOrServer);
+    async computeCostForCall(inputTokens, outputTokens, msg) {
+        const pricing = await this.resolveForMessage(msg);
         return this.computeCost(inputTokens, outputTokens, pricing);
     }
     readClineModelIdOnly() {
-        if (process.env.MASTYF_AI_ENABLE_CLINE_PRICING !== 'true')
-            return null;
         const statePath = join(homedir(), '.cline', 'data', 'globalState.json');
         if (!existsSync(statePath))
             return null;
@@ -160,44 +113,18 @@ export class RuntimeModelPricing {
         }
     }
     async detectActivePricing() {
-        // 1. Explicit environment model override
-        const explicitEnv = process.env.MASTYF_AI_MODEL ||
-            process.env.MASTYF_AI_LLM_MODEL ||
-            process.env.ANTHROPIC_MODEL ||
-            process.env.OPENAI_MODEL;
-        if (explicitEnv?.trim()) {
-            const resolved = await this.resolveModelIdDirect(explicitEnv.trim());
-            if (resolved)
-                return { ...resolved, source: 'env' };
-        }
-        // 2. Opt-in Cline pricing if enabled
-        if (process.env.MASTYF_AI_ENABLE_CLINE_PRICING === 'true') {
-            const cline = this.readClinePricing();
-            if (cline)
-                return cline;
-            const clineId = this.readClineModelIdOnly();
-            if (clineId) {
-                const resolved = await this.resolveModelIdDirect(clineId);
-                if (resolved)
-                    return resolved;
-            }
-        }
-        // 3. Centralized LLM config
-        const envModel = resolveModelId();
-        if (envModel?.trim() && envModel !== 'qwen3:8b') {
-            const resolved = await this.resolveModelIdDirect(envModel.trim());
+        const cline = this.readClinePricing();
+        if (cline)
+            return cline;
+        const clineId = this.readClineModelIdOnly();
+        if (clineId) {
+            const resolved = await this.resolveModelIdDirect(clineId);
             if (resolved)
                 return resolved;
         }
-        // 4. Default Enterprise multi-model baseline: Claude 3.5 Sonnet
-        const defaultModel = 'claude-3-5-sonnet';
-        const resolvedDefault = await this.resolveModelIdDirect(defaultModel);
-        if (resolvedDefault) {
-            return {
-                ...resolvedDefault,
-                displayName: 'Claude 3.5 Sonnet (Fleet Baseline)',
-                source: 'litellm',
-            };
+        const envModel = resolveModelId();
+        if (envModel?.trim()) {
+            return this.resolveModelIdDirect(envModel.trim());
         }
         return null;
     }

@@ -174,7 +174,7 @@ export async function runSemanticScan(tool, priorIssues, options = {}) {
         || process.env.OLLAMA_ENABLED === "true";
     const useOllama = ollamaExplicit && llmConfig.provider === "ollama";
     if (!apiKey && !useOllama) {
-        return [semanticUnavailableIssue('Semantic scan skipped — no LLM API key. Configure OLLAMA_BASE_URL and set OLLAMA_ENABLED=true or set ANTHROPIC_API_KEY', 'configuration', 'MCPG-META-001')];
+        return [semanticUnavailableIssue('Semantic scan skipped — LLM mandatory. Configure OLLAMA_BASE_URL and set OLLAMA_ENABLED=true or set ANTHROPIC_API_KEY', 'configuration', 'MCPG-META-001')];
     }
     if (isCoreSemanticCircuitOpen()) {
         return [semanticUnavailableIssue('Semantic scan skipped: circuit breaker open', 'configuration', 'MCPG-META-004')];
@@ -251,6 +251,7 @@ export async function runSemanticScan(tool, priorIssues, options = {}) {
                 return [semanticUnavailableIssue(`Semantic scan failed — LLM mandatory: ${ollamaErr.message}`, 'error', 'MCPG-META-003')];
             }
         }
+        return [semanticUnavailableIssue(`Semantic scan failed — LLM required but not available`, 'error', 'MCPG-META-003')];
         if (err.name === "AbortError") {
             return [semanticUnavailableIssue(`Semantic scan timed out after ${timeoutMs}ms`, 'configuration', 'MCPG-META-002')];
         }

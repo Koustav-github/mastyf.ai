@@ -14,6 +14,7 @@ export const PRODUCTION_APEX_HOST = 'mastyf.ai';
 export const NPM_PRODUCT_NAME = 'mastyf.ai engine';
 export const NPM_PACKAGE_NAME = 'mastyf.ai';
 export const NPM_PACKAGE_URL = 'https://github.com/mastyf-ai/mastyf.ai';
+export const GITHUB_REPO_URL = 'https://github.com/mastyf-ai/mastyf.ai';
 export const CLI_NAME = 'mastyf-ai';
 export const NPM_INSTALL_CMD = `npm install -g @mcp-guardian/server`;
 export const CLI_ONBOARD_CMD = `mastyf-ai onboard --apply`;
@@ -31,6 +32,8 @@ export const PAPER_SUBTITLE =
   'Conditional Non-Escalation Invariants and Empirical Evaluation Against Indirect Prompt Injection';
 /** Zenodo record version the site cites (resource type: preprint). */
 export const PAPER_VERSION = '5.3';
+export const SSRN_PAPER_URL = 'https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7505299';
+export const SSRN_ABSTRACT_ID = '7505299';
 export const PAPER_PDF_URL = 'https://zenodo.org/api/records/22501491/files/mastyf-guard.pdf/content';
 /** Same-origin copy of the v5.3 PDF (text-identical to the Zenodo file); the research page renders it. */
 export const PAPER_LOCAL_PDF_PATH = '/paper/mastyf-guard.pdf';

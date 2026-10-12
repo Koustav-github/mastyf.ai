@@ -10,6 +10,7 @@ import {
   PAPER_SUBTITLE,
   PAPER_TITLE,
   PAPER_VERSION,
+  SSRN_PAPER_URL,
   ZENODO_DOI,
   ZENODO_URL,
 } from '@/lib/product-links';
@@ -59,6 +60,10 @@ export default async function ResearchPage() {
             </a>
             <a href={ZENODO_URL} target="_blank" rel="noopener noreferrer" className="btn">
               Zenodo record
+              <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />
+            </a>
+            <a href={SSRN_PAPER_URL} target="_blank" rel="noopener noreferrer" className="btn">
+              SSRN
               <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />
             </a>
             <CiteButton />

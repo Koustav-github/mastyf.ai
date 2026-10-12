@@ -116,13 +116,6 @@ export interface FullReport {
 export type PricingSource = 'cline' | 'cursor' | 'env' | 'message' | 'litellm' | 'unknown';
 export interface ProxyCallRecord {
     serverName: string;
-    /** Stable MCP server id (defaults to serverName). Schema v2 receipts bind this. */
-    serverId?: string;
-    clientName?: string;
-    commandDigest?: string;
-    commandArgs?: string[];
-    childStdinBytes?: number | null;
-    sessionId?: string;
     toolName: string;
     requestTokens: number;
     responseTokens: number;
@@ -140,16 +133,6 @@ export interface ProxyCallRecord {
     blocked?: boolean;
     blockRule?: string;
     blockReason?: string;
-    /** Layer votes from gateway /v1/decide when available */
-    cbacDecision?: 'ALLOW' | 'DENY';
-    difcDecision?: 'ALLOW' | 'DENY';
-    aiaDecision?: 'ALLOW' | 'DENY' | 'NOT_EVALUATED';
-    /** Decide/evaluate latency from /v1/decide when the arbiter ran */
-    totalLatencyMs?: number;
-    /** JSON-RPC or shield request id — required to join decide latency + ledger request_id */
-    requestId?: string;
-    /** W3C / OTel trace id captured while the request span is still active */
-    traceId?: string;
     /** Redacted argument snippet for audit (encrypted at rest when MASTYF_AI_DB_ENCRYPT_AUDIT_ARGS=true) */
     argumentSnippet?: string;
     /** Whether token counts came from provider API usage or local estimate */

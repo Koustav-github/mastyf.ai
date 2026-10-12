@@ -245,6 +245,7 @@ export async function evaluateToolCallDefense(
     tenantId: input.tenantId,
     agentIdentity: input.agentIdentity,
     idempotencyKey: input.idempotencyKey,
+    sessionId: input.mcpSessionId,
   }, input.headers);
 
   const decision = deps.evaluatePolicy

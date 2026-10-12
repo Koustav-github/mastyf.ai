@@ -106,6 +106,8 @@ export interface CallContext {
     agentIdentity?: import('../auth/auth-types.js').AgentIdentity;
     /** Optional idempotency key from params._meta or HTTP header */
     idempotencyKey?: string;
+    /** Transport/conversation session id (e.g. MCP `mcp-session-id`) used to scope session-flow history. */
+    sessionId?: string;
     /** ISO country/region from proxy headers (C3 zero-trust context) */
     geoRegion?: string;
     /** Hour of day UTC at request time */

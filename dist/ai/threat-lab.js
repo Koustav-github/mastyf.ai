@@ -147,20 +147,15 @@ export async function ensureThreatLabLlmReady(llm) {
             reason: 'LLM disabled — set MASTYF_AI_LLM_ENABLED=true and configure Ollama',
         };
     }
-    const useProcessCache = llm === undefined;
-    if (useProcessCache &&
-        threatLabHealthCache &&
-        Date.now() - threatLabHealthCache.at < THREAT_LAB_HEALTH_TTL_MS &&
-        threatLabHealthCache.ok) {
+    if (threatLabHealthCache && Date.now() - threatLabHealthCache.at < THREAT_LAB_HEALTH_TTL_MS && threatLabHealthCache.ok) {
         return { ok: true, llm: assistant };
     }
-    const maxAttempts = parseInt(process.env.MASTYF_AI_THREAT_LAB_HEALTH_ATTEMPTS || '2', 10);
+    const maxAttempts = parseInt(process.env.MASTYF_AI_THREAT_LAB_HEALTH_ATTEMPTS || '1', 10);
     let lastReason = 'unknown';
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const health = await assistant.healthCheckDetailed();
         if (health.ok) {
-            if (useProcessCache)
-                threatLabHealthCache = { ok: true, at: Date.now() };
+            threatLabHealthCache = { ok: true, at: Date.now() };
             return { ok: true, llm: assistant };
         }
         lastReason = health.reason || 'unknown';
@@ -168,8 +163,7 @@ export async function ensureThreatLabLlmReady(llm) {
             await new Promise((resolve) => setTimeout(resolve, attempt * 250));
         }
     }
-    if (useProcessCache)
-        threatLabHealthCache = { ok: false, at: Date.now(), reason: lastReason };
+    threatLabHealthCache = { ok: false, at: Date.now(), reason: lastReason };
     return {
         ok: false,
         llm: assistant,

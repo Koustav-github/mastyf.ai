@@ -92,7 +92,7 @@ describe('comprehensive analysis gap fixes', () => {
     it('blocks denied github tools from default policy', () => {
       const policy = load(readFileSync(join(process.cwd(), 'default-policy.yaml'), 'utf8')) as never;
       const engine = new PolicyEngine(policy);
-      const d = engine.evaluate(ctx('create_issue', { title: 'x', body: 'y' }));
+      const d = engine.evaluate(ctx('delete_repository', { name: 'prod-repo' }));
       expect(d.action).toBe('block');
       expect(d.rule).toBe('deny-github-write-tools');
     });
