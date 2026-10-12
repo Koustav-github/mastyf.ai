@@ -45,7 +45,7 @@ export const PAPER_BIBTEX = `@misc{das2026capability,
   year={2026},
   doi={${ZENODO_DOI}},
   url={https://doi.org/${ZENODO_DOI}}
-};`;
+}`;
 /** Working Lemon storefront (bare /checkout and old buy UUIDs 404). */
 export const LEMON_STORE_URL = 'https://mastyfai.lemonsqueezy.com/';
 export const HF_CHECKOUT_URL = LEMON_STORE_URL;

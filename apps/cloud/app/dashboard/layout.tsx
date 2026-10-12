@@ -7,6 +7,7 @@ import { signOutAction } from '@/app/actions';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ShieldCheck, LogOut, Bell, Terminal, User } from 'lucide-react';
+import '../tailwind-scoped.css';
 import './dashboard.css';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     } catch (err) {
       console.error('[dashboard] provision failed', err);
       return (
+        <div className="tw-scope">
         <main className="min-h-screen bg-[#030509] text-slate-100 flex items-center justify-center p-6">
           <div className="max-w-md w-full p-8 rounded-2xl bg-slate-950 border border-white/[0.08] shadow-2xl">
             <h1 className="text-xl font-bold text-white mb-2">Setup Required</h1>
@@ -52,6 +54,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </Link>
           </div>
         </main>
+        </div>
       );
     }
   }
@@ -61,6 +64,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
+    <div className="tw-scope">
     <div className="min-h-screen bg-[#030509] text-slate-100 flex flex-col lg:flex-row antialiased">
       {/* Sidebar Navigation */}
       <DashboardNav orgName={ctx.org.name} orgSlug={ctx.org.slug} />
@@ -106,6 +110,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
 
       </div>
+    </div>
     </div>
   );
 }

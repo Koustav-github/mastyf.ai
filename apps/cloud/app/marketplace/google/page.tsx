@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
+import '../../tailwind-scoped.css';
 
 function MarketplaceOnboardingContent() {
   const searchParams = useSearchParams();
@@ -208,6 +209,7 @@ function MarketplaceOnboardingContent() {
 
 export default function GoogleMarketplaceOnboardingPage() {
   return (
+    <div className="tw-scope">
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#07090e] flex items-center justify-center text-cyan-400">
@@ -217,5 +219,6 @@ export default function GoogleMarketplaceOnboardingPage() {
     >
       <MarketplaceOnboardingContent />
     </Suspense>
+    </div>
   );
 }

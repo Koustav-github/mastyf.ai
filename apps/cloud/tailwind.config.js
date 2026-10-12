@@ -1,5 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // Tailwind is used only by the dashboard and the marketplace onboarding page, inside a
+  // .tw-scope wrapper (see app/tailwind-scoped.css). Scoping the utilities and turning off
+  // the global preflight keeps it from restyling the rest of the site.
+  important: '.tw-scope',
+  corePlugins: {
+    preflight: false,
+  },
   darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
