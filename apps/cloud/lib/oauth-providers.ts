@@ -55,6 +55,7 @@ export function configuredOAuthProviders(): Provider[] {
       Google({
         clientId: googleId,
         clientSecret: googleSecret,
+        allowDangerousEmailAccountLinking: true,
       }),
     );
   } else {
