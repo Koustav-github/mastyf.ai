@@ -44,7 +44,10 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SiteNav(_props: Props) {
+export function SiteNav({ session }: Props) {
+  // Signing in for the first time creates the account, so one entry point covers sign-up too.
+  const account = session ? { href: '/dashboard', label: 'Dashboard' } : { href: '/login', label: 'Sign in' };
+
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -324,6 +327,14 @@ export function SiteNav(_props: Props) {
                   </span>
                   <ArrowUpRight className="nav__external-arrow" size={13} strokeWidth={1.75} aria-hidden="true" />
                 </a>
+                <Link
+                  href={account.href}
+                  className={`nav__link nav__account${isActive(pathname, account.href) ? ' is-active' : ''}`}
+                  data-magnetic
+                  data-roll
+                >
+                  <Flip light="var(--accent)">{account.label}</Flip>
+                </Link>
                 <Link href="/download" className="btn btn-primary btn-sm nav__cta" data-magnetic data-roll>
                   <Download size={13} strokeWidth={2} aria-hidden="true" />
                   <span className="nav__cta-full">
@@ -383,6 +394,13 @@ export function SiteNav(_props: Props) {
                 </Link>
               );
             })}
+            {/* The bar has no room for it on narrow screens. */}
+            <Link
+              href={account.href}
+              className={`nav__sheet-link${isActive(pathname, account.href) ? ' is-active' : ''}`}
+            >
+              {account.label}
+            </Link>
           </nav>
           {/* On narrow screens the theme switch lives here instead of in the bar. */}
           <div className="nav__sheet-theme">

@@ -1,97 +1,107 @@
-import { auth } from '@/lib/auth';
-import { getDb } from '@/lib/db';
-import { getUserOrg } from '@/lib/org-context';
-import { sql } from 'drizzle-orm';
-import { redirect } from 'next/navigation';
+import { InstancesTable } from '@/components/dashboard/InstancesTable';
+import { listInstances, listTeams, requireDashboard, trafficTotals } from '@/lib/dashboard-data';
+import { formatCount } from '@/lib/format';
 
 export default async function TeamsPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect('/login');
-  const ctx = await getUserOrg(session.user.id);
-  if (!ctx) redirect('/post-login');
+  const { ctx } = await requireDashboard();
+  const orgId = ctx.org.id;
 
-  const result = await getDb().execute(sql`
-    SELECT t.*, count(tm.user_id)::int as member_count
-    FROM teams t LEFT JOIN team_members tm ON t.org_id = tm.org_id AND t.id = tm.team_id
-    WHERE t.org_id = ${ctx.org.id}
-    GROUP BY t.org_id, t.id ORDER BY t.name
-  `);
-  const teams = (result as any)?.rows || [];
-
-  // Get fleet instances for policy assignment
-  const fleetResult = await getDb().execute(sql`
-    SELECT instance_id, instance_name, status, last_heartbeat
-    FROM mastyf_ai_fleet_instances
-    WHERE org_id = ${ctx.org.id}
-    ORDER BY last_heartbeat DESC LIMIT 50
-  `);
-  const instances = (fleetResult as any)?.rows || [];
-
-  // Get audit summary
-  const auditResult = await getDb().execute(sql`
-    SELECT coalesce(sum(total_requests),0)::int as total,
-           coalesce(sum(blocked_requests),0)::int as blocked,
-           coalesce(sum(allowed_requests),0)::int as "allowed",
-           count(*)::int as periods
-    FROM fleet_audit_aggregates WHERE org_id = ${ctx.org.id}
-  `);
-  const audit = ((auditResult as any)?.rows || [])[0] || { total: 0, blocked: 0, allowed: 0, periods: 0 };
+  const [teams, instances, traffic] = await Promise.all([
+    listTeams(orgId),
+    listInstances(orgId, 50),
+    trafficTotals(orgId),
+  ]);
+  const online = instances.filter((i) => i.health === 'online').length;
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: 40 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Teams</h1>
-      <p style={{ color: 'var(--ink-2)', marginBottom: 32 }}>Manage teams and their security policies</p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
-        <StatCard label="Teams" value={String(teams.length)} />
-        <StatCard label="Active Instances" value={String(instances.filter((i: any) => i.status === 'active' || i.status === 'online').length)} />
-        <StatCard label="Total Requests" value={String(audit.total || 0)} />
-        <StatCard label="Blocked" value={String(audit.blocked || 0)} color="var(--critical)" />
-      </div>
-
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Team List</h2>
-      {teams.length === 0 ? (
-        <div style={{ padding: 32, textAlign: 'center', background: 'var(--bg-sunken)', borderRadius: 8, color: 'var(--ink-2)' }}>
-          No teams yet. Use the API or dashboard to create teams.
+    <>
+      <header className="dhead">
+        <div>
+          <h1>Teams</h1>
+          <p>Teams in this workspace and the proxies they run.</p>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {teams.map((team: any) => (
-            <div key={team.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>{team.name}</div>
-                {team.description && <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{team.description}</div>}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{team.member_count} members</div>
+      </header>
+
+      <div className="dstack">
+        <section className="panel" aria-label="Summary">
+          <div className="metrics">
+            <div className="metric">
+              <span className="metric__label">Teams</span>
+              <span className="metric__value">{formatCount(teams.length)}</span>
             </div>
-          ))}
-        </div>
-      )}
-
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginTop: 32, marginBottom: 16 }}>Fleet Instances</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {instances.map((inst: any) => (
-          <div key={inst.instance_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13 }}>
-            <span style={{ fontWeight: 500 }}>{inst.instance_name || inst.instance_id}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ color: 'var(--ink-2)' }}>{inst.region || '-'}</span>
-              <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, background: inst.status === 'active' || inst.status === 'online' ? 'var(--ok-soft)' : 'var(--surface-hover)', color: inst.status === 'active' || inst.status === 'online' ? 'var(--ok)' : 'var(--ink-2)' }}>
-                {inst.status || 'unknown'}
+            <div className="metric">
+              <span className="metric__label">Proxies online</span>
+              <span className="metric__value">
+                {online}
+                <small className="metric__of"> / {instances.length}</small>
               </span>
-              <span style={{ color: 'var(--ink-3)', fontSize: 11 }}>{inst.last_heartbeat ? new Date(inst.last_heartbeat).toLocaleString() : '-'}</span>
+            </div>
+            <div className="metric">
+              <span className="metric__label">Tool calls</span>
+              <span className="metric__value">{formatCount(traffic.total)}</span>
+            </div>
+            <div className="metric">
+              <span className="metric__label">Blocked</span>
+              <span className="metric__value">{formatCount(traffic.blocked)}</span>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+        </section>
 
-function StatCard({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8 }}>
-      <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: color || 'var(--ink-strong)' }}>{value}</div>
-    </div>
+        <section className="panel" aria-labelledby="team-list">
+          <div className="panel__head">
+            <h2 id="team-list" className="panel__title">
+              Teams
+            </h2>
+          </div>
+          <div className="panel__body panel__body--flush">
+            {teams.length ? (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Team</th>
+                    <th scope="col" className="num">
+                      Members
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teams.map((team) => (
+                    <tr key={team.id}>
+                      <td>
+                        {team.name}
+                        {team.description ? <span className="cell-sub">{team.description}</span> : null}
+                      </td>
+                      <td className="num dim">{formatCount(team.memberCount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="empty">
+                <strong>No teams yet</strong>
+                Create teams with the <code>/api/v1/teams</code> API.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="team-instances">
+          <div className="panel__head">
+            <h2 id="team-instances" className="panel__title">
+              Proxies
+            </h2>
+          </div>
+          <div className="panel__body panel__body--flush">
+            {instances.length ? (
+              <InstancesTable instances={instances} />
+            ) : (
+              <p className="empty">
+                <strong>No proxies linked yet</strong>
+              </p>
+            )}
+          </div>
+        </section>
+      </div>
+    </>
   );
 }

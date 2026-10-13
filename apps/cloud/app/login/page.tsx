@@ -1,16 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { ArrowRight, LogOut } from 'lucide-react';
 import { SignInButtons } from '@/components/SignInButtons';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteNav } from '@/components/SiteNav';
-import { safeAuth } from '@/lib/safe-auth';
-import { CLOUD_NAME, SITE_NAME } from '@/lib/product-links';
+import { isAuthConfigured, safeAuth } from '@/lib/safe-auth';
 import { oauthProviderStatus } from '@/lib/oauth-providers';
+import { GITHUB_REPO_URL } from '@/lib/github-links';
 import { SUPPORT_EMAIL } from '@/lib/support';
 import { signOutAction } from '@/app/actions';
-import { redirect } from 'next/navigation';
-import '../landing.css';
-import './login.css';
 
 type Props = {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
@@ -19,8 +17,10 @@ type Props = {
 const supportHint = `Contact ${SUPPORT_EMAIL} if this persists.`;
 
 const ERROR_MESSAGES: Record<string, string> = {
-  Configuration: 'OAuth is misconfigured. Check environment variables on this deployment.',
+  Configuration: `Sign-in isn't available on this deployment right now. Try again later, or contact ${SUPPORT_EMAIL}.`,
   AccessDenied: `Access was denied. Try another account or contact ${SUPPORT_EMAIL}.`,
+  EmailNotVerified:
+    'Your GitHub or Google account has no verified email address. Verify one with that provider, then sign in again.',
   Verification: 'Sign-in link expired. Try again.',
   OAuthAccountNotLinked:
     'This email is already linked to another sign-in method. Use the same provider you used before.',
@@ -35,6 +35,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function LoginPage({ searchParams }: Props) {
   const session = await safeAuth();
   const params = await searchParams;
+  // Only same-site paths: anything else collapses to its path on this site.
   let callbackUrl = params.callbackUrl ?? '/dashboard';
   try {
     const parsed = new URL(callbackUrl, 'http://local');
@@ -42,100 +43,95 @@ export default async function LoginPage({ searchParams }: Props) {
       callbackUrl = `${parsed.pathname}${parsed.search}`;
     }
   } catch {
-    /* keep as-is */
+    callbackUrl = '/dashboard';
   }
   const errorCode = params.error;
-  const errorMessage = errorCode
-    ? (ERROR_MESSAGES[errorCode] ?? ERROR_MESSAGES.Default)
-    : null;
+  const errorMessage = errorCode ? (ERROR_MESSAGES[errorCode] ?? ERROR_MESSAGES.Default) : null;
 
+  const signInAvailable = isAuthConfigured();
   const oauth = oauthProviderStatus();
-  const oauthReady = oauth.google || oauth.github || oauth.dev;
-  const devSetupNeeded = process.env.NODE_ENV === 'development' && !oauth.github && !oauth.google;
+  const oauthReady = oauth.google || oauth.github;
+  const signedIn = Boolean(session?.user?.id);
+  // Signing in with GitHub or Google for the first time creates the account (see
+  // lib/ensure-auth-user.ts) and the dashboard then provisions a free workspace.
+  const lead = !signInAvailable
+    ? "Sign-in isn't available on this deployment right now. Shield downloads and security scores still work without an account."
+    : oauthReady
+      ? 'Continue with GitHub or Google. New here? Your account and a free workspace are created the first time you sign in.'
+      : "GitHub and Google sign-in aren't set up on this deployment yet. You can still preview the console with the demo.";
 
   return (
-    <div className="landing login-page">
-      <SiteNav session={false} />
-      <div className="login-page-main">
-        <div className="login-card">
-          <Link href="/" className="login-brand">
-            <Image src="/logo.png" alt="" width={36} height={36} style={{ borderRadius: 8 }} />
-            <strong>{SITE_NAME}</strong>
+    <>
+      <SiteNav session={signedIn} />
+      <main className="auth">
+        <div className="auth__card">
+          <Link href="/" className="app__brand" style={{ padding: 0 }}>
+            <Image src="/brand/mark-64.png" alt="" width={26} height={26} className="brand-mark" />
+            <span>mastyf.ai</span>
           </Link>
 
-          <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-left">
-            <p className="text-xs text-amber-200">
-              💡 <strong>Looking to download Mastyf Shield?</strong> No account or login is required. You can download and activate Shield directly.
-            </p>
-            <Link href="/download" className="text-xs text-amber-400 font-semibold underline mt-1 inline-block">
-              Go to Mastyf Shield Download →
-            </Link>
-          </div>
+          <h1>Sign in or create an account</h1>
+          <p className="auth__lead">{lead}</p>
 
-          {session?.user?.id ? (
-            <div className="card p-3 mb-4 bg-slate-800/80 border-slate-700 text-center">
-              <p className="text-xs text-slate-300 mb-2">
-                Active session detected ({session.user.email || session.user.name || 'Demo Session'}).
+          {signedIn ? (
+            <div className="notice notice--ok">
+              <p style={{ margin: '0 0 var(--s-3)' }}>
+                You&rsquo;re signed in as{' '}
+                <strong>{session?.user?.email || session?.user?.name || 'the demo account'}</strong>.
               </p>
-              <div className="flex items-center justify-center gap-3">
+              <div className="btn-row">
+                <Link href={callbackUrl} className="btn btn-primary btn-sm">
+                  Continue
+                  <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+                </Link>
                 <form action={signOutAction}>
-                  <button type="submit" className="btn btn-secondary btn-sm text-xs py-1.5 px-3">
-                    Sign Out / Clear Session
+                  <button type="submit" className="btn btn-sm">
+                    <LogOut size={13} strokeWidth={1.75} aria-hidden="true" />
+                    Sign out
                   </button>
                 </form>
-                <Link href="/download" className="btn btn-primary btn-sm text-xs py-1.5 px-3">
-                  Download Shield →
-                </Link>
               </div>
             </div>
           ) : null}
 
-          <h1>Sign in to Enterprise Control Plane</h1>
-          <p className="login-lead">
-            {oauth.github || oauth.google
-              ? 'Use Google or GitHub to manage policy, API keys, and fleet settings.'
-              : oauth.dev
-                ? 'Local dev mode — use the dev account below, or add GitHub OAuth for real sign-in.'
-                : 'Enterprise control plane for centralized policy and fleet governance.'}
-          </p>
-
           {errorMessage ? (
-            <p className="alert alert-warn" role="alert" style={{ textAlign: 'left', marginBottom: '1rem' }}>
-              {errorMessage}
-              {errorCode && errorCode !== 'AccessDenied' && errorCode !== 'ProvisionFailed' ? (
-                <span className="muted" style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.8rem' }}>
-                  {supportHint}
-                </span>
+            <div className="notice notice--error" role="alert">
+              <p style={{ margin: 0 }}>{errorMessage}</p>
+              {errorCode && !['AccessDenied', 'ProvisionFailed', 'EmailNotVerified'].includes(errorCode) ? (
+                <p className="auth__note">{supportHint}</p>
               ) : null}
-              {errorCode ? (
-                <span className="muted" style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.8rem' }}>
-                  Code: {errorCode}
-                </span>
-              ) : null}
-            </p>
+              {errorCode ? <p className="auth__note">Code: {errorCode}</p> : null}
+            </div>
           ) : null}
 
-          <SignInButtons
-            callbackUrl={callbackUrl}
-            googleEnabled={oauth.google}
-            githubEnabled={oauth.github}
-            devEnabled={oauth.dev}
-            devSetupNeeded={devSetupNeeded}
-          />
-
-          {oauthReady ? (
-            <p className="login-alt muted">
-              No account needed for{' '}
-              <Link href="/certified">security scores</Link>.
-            </p>
+          {signInAvailable ? (
+            <SignInButtons
+              callbackUrl={callbackUrl}
+              googleEnabled={oauth.google}
+              githubEnabled={oauth.github}
+              devEnabled={oauth.dev}
+              simulated={oauth.simulated}
+            />
           ) : null}
 
-          <p className="login-footer-links">
-            <Link href="/">Back to home</Link>
-          </p>
+          <div className="auth__aside">
+            <p>
+              Only want the desktop app? <Link href="/download">Download Mastyf Shield</Link>; no account needed.
+            </p>
+            <p>
+              Checking an MCP server? <Link href="/certified">Security scores</Link> are public.
+            </p>
+            <p>
+              Prefer to run it yourself?{' '}
+              <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">
+                Self-host from GitHub
+              </a>
+              .
+            </p>
+          </div>
         </div>
-      </div>
+      </main>
       <SiteFooter />
-    </div>
+    </>
   );
 }

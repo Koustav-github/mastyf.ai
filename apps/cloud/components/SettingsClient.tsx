@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { RotateCw } from 'lucide-react';
 import { NPM_PRODUCT_NAME, SITE_NAME } from '@/lib/product-links';
 
-export function SettingsClient({ orgName }: { orgName: string }) {
+/** API key rotation. The new key is shown once, right after rotating. */
+export function SettingsClient({ activeKeys }: { activeKeys: number }) {
   const [rotating, setRotating] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -26,30 +28,37 @@ export function SettingsClient({ orgName }: { orgName: string }) {
   };
 
   return (
-    <div className="card">
-      <h2>Organization</h2>
-      <p>
-        Name: <strong>{orgName}</strong>
-      </p>
-
-      <h2 style={{ marginTop: '1.5rem' }}>API keys</h2>
-      <p className="muted">
-        Use this key for {SITE_NAME} Cloud <code>/api/v1/*</code> automation (policy sync, fleet
-        heartbeat). If you link a self-hosted {NPM_PRODUCT_NAME} proxy, set it as{' '}
-        <code>MASTYF_AI_CLOUD_API_KEY</code> on that host. Keys are shown only once when rotated.
-      </p>
-      <button type="button" className="btn btn-primary" onClick={onRotate} disabled={rotating}>
-        {rotating ? 'Rotating…' : 'Rotate API key'}
-      </button>
-      {newKey && (
-        <div className="alert alert-success" style={{ marginTop: '1rem' }}>
-          <strong>New API key (copy now):</strong>
-          <pre className="env-block" style={{ marginTop: '0.5rem' }}>
-            {newKey}
-          </pre>
-        </div>
-      )}
-      {error && <p className="alert alert-warn">{error}</p>}
-    </div>
+    <section className="panel" aria-labelledby="api-keys">
+      <div className="panel__head">
+        <h2 id="api-keys" className="panel__title">
+          API key
+        </h2>
+        <span className="panel__meta">{activeKeys === 1 ? '1 active key' : `${activeKeys} active keys`}</span>
+      </div>
+      <div className="panel__body">
+        <p className="panel__text">
+          Used for {SITE_NAME} Cloud <code>/api/v1/*</code> automation such as policy sync and fleet heartbeats. On a
+          self-hosted {NPM_PRODUCT_NAME} proxy, set it as <code>MASTYF_AI_CLOUD_API_KEY</code>. Rotating replaces the
+          current key at once, and the new one is shown only here, only once.
+        </p>
+        <button type="button" className="btn btn-primary" onClick={onRotate} disabled={rotating}>
+          <RotateCw size={14} strokeWidth={2} aria-hidden="true" />
+          {rotating ? 'Rotating…' : 'Rotate API key'}
+        </button>
+        {newKey ? (
+          <div className="notice notice--ok" role="status" style={{ marginTop: 'var(--s-4)' }}>
+            <strong>New API key. Copy it now; it won&rsquo;t be shown again.</strong>
+            <pre className="envblock" style={{ marginTop: 'var(--s-2)' }}>
+              {newKey}
+            </pre>
+          </div>
+        ) : null}
+        {error ? (
+          <p className="notice notice--error" role="alert" style={{ marginTop: 'var(--s-4)' }}>
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }

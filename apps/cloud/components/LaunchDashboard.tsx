@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
+
+const URL_KEY = 'mastyf-ai-url';
+const DEFAULT_URL = 'http://localhost:4000';
 
 function isValidGuardianUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -13,15 +17,21 @@ function isValidGuardianUrl(url: string): boolean {
   }
 }
 
+/** One-time SSO redirect into a self-hosted proxy's own dashboard. */
 export function LaunchDashboard() {
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [mastyfAiUrl, setMastyfAiUrl] = useState(
-    typeof window !== 'undefined'
-      ? localStorage.getItem('mastyf-ai-url') ?? 'http://localhost:4000'
-      : 'http://localhost:4000',
-  );
+  const [mastyfAiUrl, setMastyfAiUrl] = useState(DEFAULT_URL);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Restore the last URL after mounting, so the server and first client render agree.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(URL_KEY);
+      if (saved) setMastyfAiUrl(saved);
+    } catch {
+      /* storage unavailable: keep the default */
+    }
+  }, []);
 
   const onLaunch = async () => {
     setError('');
@@ -32,7 +42,11 @@ export function LaunchDashboard() {
     setLoading(true);
     try {
       const normalized = mastyfAiUrl.trim();
-      localStorage.setItem('mastyf-ai-url', normalized);
+      try {
+        localStorage.setItem(URL_KEY, normalized);
+      } catch {
+        /* not remembered; the launch still works */
+      }
       const res = await fetch('/api/dashboard/launch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,45 +65,39 @@ export function LaunchDashboard() {
   };
 
   return (
-    <div className="card">
-      <h2>Open live dashboard (SSO)</h2>
-      <p className="muted">
-        One-time redirect to your proxy ops UI. Requires the env block above on that host (
-        <code>MASTYF_AI_CLOUD_JWT_SECRET</code> must match cloud <code>AUTH_SECRET</code>).
-      </p>
-      <label style={{ display: 'block', marginTop: '1rem' }}>
-        Proxy base URL
-        <input
-          type="url"
-          value={mastyfAiUrl}
-          onChange={(e) => setMastyfAiUrl(e.target.value)}
-          placeholder="http://localhost:4000"
-          style={{
-            display: 'block',
-            width: '100%',
-            marginTop: '0.35rem',
-            padding: '0.5rem',
-            borderRadius: '6px',
-            border: '1px solid var(--border)',
-            background: 'var(--bg-sunken)',
-            color: 'var(--text)',
-          }}
-        />
-      </label>
-      <button
-        type="button"
-        className="btn btn-primary"
-        style={{ marginTop: '1rem' }}
-        onClick={() => void onLaunch()}
-        disabled={loading}
-      >
-        {loading ? 'Redirecting…' : 'Open live dashboard (SSO)'}
-      </button>
-      {error && (
-        <p className="alert alert-warn" style={{ marginTop: '1rem' }}>
-          {error}
+    <section className="panel" aria-labelledby="launch">
+      <div className="panel__head">
+        <h2 id="launch" className="panel__title">
+          Open a proxy&rsquo;s live dashboard
+        </h2>
+      </div>
+      <div className="panel__body">
+        <p className="panel__text">
+          Signs you straight into the operations dashboard on your proxy host. That host needs the variables above, with{' '}
+          <code>MASTYF_AI_CLOUD_JWT_SECRET</code> matching this cloud&rsquo;s <code>AUTH_SECRET</code>.
         </p>
-      )}
-    </div>
+        <div className="btn-row" style={{ alignItems: 'flex-end' }}>
+          <label className="field" style={{ flex: '1 1 280px' }}>
+            <span>Proxy URL</span>
+            <input
+              className="input"
+              type="url"
+              value={mastyfAiUrl}
+              onChange={(e) => setMastyfAiUrl(e.target.value)}
+              placeholder={DEFAULT_URL}
+            />
+          </label>
+          <button type="button" className="btn btn-primary" onClick={() => void onLaunch()} disabled={loading}>
+            <ExternalLink size={14} strokeWidth={2} aria-hidden="true" />
+            {loading ? 'Redirecting…' : 'Open dashboard'}
+          </button>
+        </div>
+        {error ? (
+          <p className="notice notice--error" role="alert" style={{ marginTop: 'var(--s-4)' }}>
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }

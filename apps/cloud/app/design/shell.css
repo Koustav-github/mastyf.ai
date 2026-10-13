@@ -363,7 +363,19 @@ html.lenis body {
   display: none;
 }
 
-@media (max-width: 899px) {
+/* Tightened links between the menu breakpoint and wide screens, so the bar fits. */
+@media (min-width: 1024px) and (max-width: 1179px) {
+  .nav__inner {
+    gap: var(--s-4);
+  }
+
+  .nav__bar .nav__link {
+    padding: 0 10px;
+  }
+}
+
+/* Below 1024px the page links (and Sign in) move into the menu sheet. */
+@media (max-width: 1023px) {
   .nav__links {
     display: none;
   }
@@ -376,6 +388,11 @@ html.lenis body {
 
   .nav__external-label,
   .nav__external-arrow {
+    display: none;
+  }
+
+  /* Sign in / Dashboard moves into the menu sheet. */
+  .nav__account {
     display: none;
   }
 
