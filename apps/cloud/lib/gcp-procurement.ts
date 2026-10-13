@@ -6,6 +6,68 @@
  */
 
 import { execSync } from 'node:child_process';
+import crypto from 'node:crypto';
+
+let cachedSaToken: { token: string; expiresAt: number } | null = null;
+
+async function mintServiceAccountAccessToken(saJsonOrB64: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedSaToken && cachedSaToken.expiresAt > now + 60) {
+    return cachedSaToken.token;
+  }
+
+  let sa: { client_email?: string; private_key?: string };
+  try {
+    const raw = saJsonOrB64.trim().startsWith('{')
+      ? saJsonOrB64.trim()
+      : Buffer.from(saJsonOrB64.trim(), 'base64').toString('utf8');
+    sa = JSON.parse(raw);
+  } catch (err: any) {
+    throw new Error(`Failed to parse GCP service account JSON: ${err.message}`);
+  }
+
+  if (!sa.client_email || !sa.private_key) {
+    throw new Error('GCP service account JSON is missing client_email or private_key');
+  }
+
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const payload = {
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const b64Header = Buffer.from(JSON.stringify(header)).toString('base64url');
+  const b64Payload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const unsignedToken = `${b64Header}.${b64Payload}`;
+
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(unsignedToken);
+  const signature = signer.sign(sa.private_key, 'base64url');
+  const jwt = `${unsignedToken}.${signature}`;
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    throw new Error(`Failed to exchange GCP service account key for OAuth access token: ${errText}`);
+  }
+
+  const tokenData = await tokenRes.json();
+  const accessToken = tokenData.access_token;
+  const expiresIn = tokenData.expires_in || 3600;
+  cachedSaToken = { token: accessToken, expiresAt: now + expiresIn };
+  return accessToken;
+}
 
 const PROCUREMENT_BASE_URL = 'https://cloudcommerceprocurement.googleapis.com/v1';
 
@@ -65,6 +127,18 @@ export class GcpProcurementClient {
   async getAccessToken(): Promise<string> {
     if (process.env.GCP_MARKETPLACE_ACCESS_TOKEN?.trim()) {
       return process.env.GCP_MARKETPLACE_ACCESS_TOKEN.trim();
+    }
+
+    const saKey =
+      process.env.GCP_SERVICE_ACCOUNT_KEY?.trim() ||
+      process.env.GCP_SERVICE_ACCOUNT_JSON?.trim() ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON?.trim();
+    if (saKey) {
+      try {
+        return await mintServiceAccountAccessToken(saKey);
+      } catch (err) {
+        console.warn('[GCP Procurement] Service account token minting warning:', err);
+      }
     }
 
     // Try Cloud Run / Compute Engine metadata server
