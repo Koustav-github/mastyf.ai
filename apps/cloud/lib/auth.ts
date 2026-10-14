@@ -18,6 +18,5 @@ function cloudAdapter() {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
-  secret: process.env.AUTH_SECRET || authConfig.secret,
   adapter: process.env.DATABASE_URL ? cloudAdapter() : undefined,
 });

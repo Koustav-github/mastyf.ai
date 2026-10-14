@@ -1,17 +1,28 @@
 import type { NextAuthConfig } from 'next-auth';
+import { resolveAuthSecret, warnIfAuthUnconfigured } from './auth-secret';
 import { ensureAuthUser } from './ensure-auth-user';
-import { configuredOAuthProviders, DEV_AUTH_PROVIDER_ID, DEMO_AUTH_PROVIDER_ID } from './oauth-providers';
+import {
+  configuredOAuthProviders,
+  DEV_AUTH_PROVIDER_ID,
+  DEMO_AUTH_PROVIDER_ID,
+  oauthEmailVerified,
+} from './oauth-providers';
+
+warnIfAuthUnconfigured();
 
 export const authConfig = {
-  secret: process.env.AUTH_SECRET || 'mastyf-dev-fallback-auth-secret-32-bytes-minimum-key',
+  // No fallback outside local development: see lib/auth-secret.ts.
+  secret: resolveAuthSecret(),
   providers: configuredOAuthProviders(),
   pages: { signIn: '/login' },
   trustHost: true,
   // JWT sessions: same token in middleware (edge) and server components (adapter still stores users/accounts).
   session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (!user?.id) return false;
+      // Runs before Auth.js links accounts by email, so an unverified address never links.
+      if (!oauthEmailVerified(account?.provider, profile)) return '/login?error=EmailNotVerified';
       if (
         account?.provider === DEV_AUTH_PROVIDER_ID ||
         account?.provider === DEMO_AUTH_PROVIDER_ID ||
@@ -43,6 +54,8 @@ export const authConfig = {
       }
       return session;
     },
+    // Not what guards the dashboard: Auth.js ignores this result when middleware passes its
+    // own handler, as middleware.ts does. The guard lives there; this stays consistent with it.
     authorized({ auth, request }) {
       const path = request.nextUrl.pathname;
       if (path.startsWith('/dashboard')) {

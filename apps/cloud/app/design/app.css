@@ -1,0 +1,648 @@
+/* The signed-in app (dashboard shell and its parts) and the sign-in page. Built on the
+   site's tokens, so the palette and the light/dark themes carry over. Panels, metrics,
+   key-value lists and status labels come from components.css. */
+
+/* ------------------------------------------------------------ shell */
+
+.app {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.app__side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  height: 100vh;
+  padding: var(--s-5) var(--s-3) var(--s-4);
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.app__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--s-2);
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.app__brand:hover {
+  color: var(--ink-strong);
+}
+
+.app__brand small {
+  color: var(--ink-3);
+  font-family: var(--font);
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.app__org {
+  display: grid;
+  gap: 2px;
+  padding: var(--s-3);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.app__org strong {
+  overflow: hidden;
+  color: var(--ink-strong);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app__org span {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-family: var(--font-code);
+  font-size: var(--fs-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app__nav {
+  display: grid;
+  gap: 2px;
+}
+
+.app__nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 8px var(--s-3);
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+  border-radius: var(--r);
+  transition:
+    color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.app__nav a svg {
+  flex-shrink: 0;
+  color: var(--ink-3);
+}
+
+.app__nav a:hover {
+  color: var(--ink-strong);
+  background: rgb(var(--tint) / 0.05);
+}
+
+.app__nav a[aria-current='page'] {
+  color: var(--ink-strong);
+  font-weight: 600;
+  background: rgb(var(--tint) / 0.07);
+}
+
+.app__nav a[aria-current='page'] svg {
+  color: var(--accent);
+}
+
+.app__foot {
+  display: grid;
+  gap: var(--s-2);
+  margin-top: auto;
+  padding: var(--s-4) var(--s-2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.app__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+.app__row a {
+  color: var(--ink-2);
+}
+
+.app__email {
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app__main {
+  min-width: 0;
+}
+
+.app__content {
+  width: min(100% - var(--s-10) * 2, 1120px);
+  margin: 0 auto;
+  padding: var(--s-10) 0 var(--s-16);
+}
+
+/* Narrow screens: the sidebar becomes a top bar with a scrolling row of links. */
+@media (max-width: 1023px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app__side {
+    position: sticky;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--s-3);
+    height: auto;
+    padding: var(--s-3) var(--s-4);
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .app__org {
+    display: none;
+  }
+
+  .app__nav {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: var(--s-1);
+    margin: 0 calc(-1 * var(--s-4));
+    padding: 0 var(--s-4);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .app__nav a {
+    flex-shrink: 0;
+    padding: 6px var(--s-3);
+  }
+
+  .app__foot {
+    grid-row: 1;
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .app__foot .app__email,
+  .app__foot .app__site {
+    display: none;
+  }
+
+  .app__content {
+    width: min(100% - var(--s-4) * 2, 1120px);
+    padding-top: var(--s-8);
+  }
+}
+
+/* ------------------------------------------------------------ page header */
+
+.dhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4) var(--s-6);
+  margin-bottom: var(--s-8);
+}
+
+.dhead h1 {
+  margin: 0;
+  font-size: clamp(1.625rem, 1.3rem + 1vw, 2.125rem);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.dhead p {
+  max-width: 64ch;
+  margin: var(--s-2) 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+}
+
+.dhead__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+/* ------------------------------------------------------------ layout helpers */
+
+.dstack {
+  display: grid;
+  gap: var(--s-6);
+}
+
+.dgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-6);
+}
+
+@media (max-width: 899px) {
+  .dgrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Metrics sit flush inside a panel. */
+.panel > .metrics {
+  border: 0;
+}
+
+@media (max-width: 639px) {
+  /* The last row of the 2-up grid sits on the panel's edge: no rule under it. */
+  .panel > .metrics > .metric:last-child,
+  .panel > .metrics > .metric:nth-last-child(2):nth-child(odd) {
+    border-bottom: 0;
+  }
+
+  /* Secondary columns give way on phones so names keep their width. */
+  .data-table .col-opt {
+    display: none;
+  }
+
+  /* Tool patterns and package names have no spaces to wrap at. */
+  .data-table code {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* "3 / 5" style counts and text-valued metrics. */
+.metric__of {
+  color: var(--ink-3);
+  font-size: 0.55em;
+  font-weight: 500;
+}
+
+.metric__value--text {
+  font-size: var(--fs-lead);
+  line-height: 1.35;
+}
+
+.panel__head .btn {
+  flex-shrink: 0;
+}
+
+.panel__text {
+  margin: 0 0 var(--s-4);
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+}
+
+/* ------------------------------------------------------------ status bits */
+
+/* Instance health, from the last heartbeat. */
+.health {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.health::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.health--online {
+  color: var(--ok);
+}
+
+.health--delayed {
+  color: var(--warn);
+}
+
+.health--offline {
+  color: var(--ink-3);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+  line-height: 1.55;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.notice strong {
+  color: var(--ink-strong);
+}
+
+.notice--ok {
+  color: var(--ink);
+  background: var(--ok-soft);
+  border-color: var(--ok-line);
+}
+
+.notice--warn {
+  color: var(--ink);
+  background: var(--warn-soft);
+  border-color: var(--warn-line);
+}
+
+.notice--error {
+  color: var(--ink);
+  background: var(--critical-soft);
+  border-color: var(--critical-line);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  color: var(--ink-2);
+  font-size: var(--fs-label);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+
+.chip b {
+  color: var(--ink-strong);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Trust grades */
+.grade {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 8px;
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  border-radius: var(--r);
+}
+
+.grade--a { color: var(--ok); }
+.grade--b { color: var(--info); }
+.grade--c { color: var(--accent); }
+.grade--d { color: var(--warn); }
+.grade--f { color: var(--critical); }
+
+.empty {
+  padding: var(--s-10) var(--s-6);
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+  text-align: center;
+}
+
+.empty strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink-strong);
+  font-size: var(--fs-body);
+}
+
+.empty code,
+.panel__text code,
+.notice code {
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------ forms and code */
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field > span {
+  color: var(--ink);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-meta);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.textarea--code {
+  min-height: 440px;
+  font-family: var(--font-code);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  resize: vertical;
+  tab-size: 2;
+  /* YAML is indentation-sensitive: scroll long lines instead of soft-wrapping them. */
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.envblock {
+  margin: 0;
+  padding: var(--s-4);
+  overflow-x: auto;
+  color: var(--ink);
+  font: 0.8125rem/1.7 var(--font-code);
+  white-space: pre;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.cell-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-1);
+}
+
+.cell-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+/* Stands in for a column hidden on phones (see .col-opt). */
+.cell-sub--sm {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .cell-sub--sm {
+    display: block;
+  }
+}
+
+/* ------------------------------------------------------------ sign-in page */
+
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 72vh;
+  padding: var(--s-10) var(--gutter) var(--s-16);
+}
+
+.auth__card {
+  width: min(100%, 440px);
+  padding: var(--s-8);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xl);
+}
+
+.auth__card h1 {
+  margin: var(--s-6) 0 var(--s-2);
+  font-size: 1.75rem;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.auth__lead {
+  margin: 0 0 var(--s-6);
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+  line-height: 1.6;
+}
+
+.auth__buttons {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  color: var(--ink-strong);
+  font: 600 var(--fs-meta) var(--font);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.auth-btn:hover {
+  border-color: var(--ink-3);
+}
+
+.auth-btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.auth-btn--primary {
+  color: var(--bg);
+  background: var(--ink-strong);
+  border-color: var(--ink-strong);
+}
+
+.auth-btn--primary:hover {
+  border-color: var(--ink-strong);
+  opacity: 0.92;
+}
+
+.auth__divider {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-3) 0;
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+.auth__divider::before,
+.auth__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth__note {
+  margin: var(--s-1) 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+  line-height: 1.5;
+}
+
+.auth__aside {
+  display: grid;
+  gap: var(--s-2);
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
+  color: var(--ink-2);
+  font-size: var(--fs-meta);
+  border-top: 1px solid var(--line);
+}
+
+.auth__aside p {
+  margin: 0;
+}
+
+.auth .notice {
+  margin-bottom: var(--s-5);
+}
+
+@media (max-width: 479px) {
+  .auth__card {
+    padding: var(--s-6) var(--s-5);
+  }
+}
