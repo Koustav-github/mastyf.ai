@@ -513,6 +513,42 @@
   font-size: var(--fs-label);
 }
 
+/* Account page: avatar beside the profile fields. */
+.account {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-5);
+}
+
+.account__kv {
+  flex: 1;
+  min-width: 0;
+}
+
+.account__avatar {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.account__avatar--initial {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--ink-strong);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+@media (max-width: 479px) {
+  .account {
+    flex-direction: column;
+  }
+}
+
 /* Stands in for a column hidden on phones (see .col-opt). */
 .cell-sub--sm {
   display: none;

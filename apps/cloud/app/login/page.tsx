@@ -18,7 +18,7 @@ const supportHint = `Contact ${SUPPORT_EMAIL} if this persists.`;
 
 const ERROR_MESSAGES: Record<string, string> = {
   Configuration: `Sign-in isn't available on this deployment right now. Try again later, or contact ${SUPPORT_EMAIL}.`,
-  AccessDenied: `Access was denied. Try another account or contact ${SUPPORT_EMAIL}.`,
+  AccessDenied: `Sign-in was cancelled or not allowed. Try again, or use another account. If Google said the app is in testing, your account needs to be added as a test user; contact ${SUPPORT_EMAIL}.`,
   EmailNotVerified:
     'Your GitHub or Google account has no verified email address. Verify one with that provider, then sign in again.',
   Verification: 'Sign-in link expired. Try again.',

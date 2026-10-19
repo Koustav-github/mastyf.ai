@@ -14,7 +14,8 @@ export const authConfig = {
   // No fallback outside local development: see lib/auth-secret.ts.
   secret: resolveAuthSecret(),
   providers: configuredOAuthProviders(),
-  pages: { signIn: '/login' },
+  // Errors land on /login?error=… (our messages) instead of Auth.js's bare error page.
+  pages: { signIn: '/login', error: '/login' },
   trustHost: true,
   // JWT sessions: same token in middleware (edge) and server components (adapter still stores users/accounts).
   session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
@@ -22,7 +23,7 @@ export const authConfig = {
     async signIn({ user, account, profile }) {
       if (!user?.id) return false;
       // Runs before Auth.js links accounts by email, so an unverified address never links.
-      if (!oauthEmailVerified(account?.provider, profile)) return '/login?error=EmailNotVerified';
+      if (!oauthEmailVerified(account, profile)) return '/login?error=EmailNotVerified';
       if (
         account?.provider === DEV_AUTH_PROVIDER_ID ||
         account?.provider === DEMO_AUTH_PROVIDER_ID ||
