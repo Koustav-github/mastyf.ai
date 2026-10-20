@@ -27,24 +27,26 @@
 }
 
 :root[data-theme='light'] .dogface {
-  --df-line: #2b2620;
-  --df-line-soft: rgba(43, 38, 32, 0.45);
-  --df-line-faint: rgba(43, 38, 32, 0.24);
-  --df-metal-0: #fffcf6;
-  --df-metal-1: #f2ecdf;
-  --df-metal-2: #e6ddcb;
-  --df-plate-0: #fdf9f1;
-  --df-plate-1: #ebe3d3;
-  --df-inner: #ded4c1;
-  --df-ruff: #efe8da;
+  /* Matches the warm parchment light theme (tokens.css). */
+  --df-line: #3a2f24;
+  --df-line-soft: rgba(58, 47, 36, 0.45);
+  --df-line-faint: rgba(58, 47, 36, 0.24);
+  --df-metal-0: #f8f1e4;
+  --df-metal-1: #ede3d1;
+  --df-metal-2: #e0d4bd;
+  --df-plate-0: #f6eee0;
+  --df-plate-1: #e6dbc6;
+  --df-inner: #d8cbb2;
+  --df-ruff: #ebe1cd;
   --df-sheen: rgba(255, 255, 255, 0.85);
   --df-rivet: #8a8170;
-  --df-socket: #1e1a15;
+  /* White eyes on paper; dark mode keeps its black sockets. */
+  --df-socket: #ffffff;
   --df-lid: #e9e1d1;
   --df-mouth: #1e1a15;
   --df-nose-0: #4a4339;
   --df-nose-1: #15120e;
-  --df-tag: #fbf8f1;
+  --df-tag: #f8f1e4;
 }
 
 .df-stop-metal-0 { stop-color: var(--df-metal-0); }

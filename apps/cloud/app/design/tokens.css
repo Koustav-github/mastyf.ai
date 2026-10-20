@@ -105,50 +105,52 @@
 }
 
 /*
- * Light theme: warm white paper, warm near-black ink, and a deeper bronze gold so
- * gold text keeps its contrast. Chosen before first paint by the script in
- * app/layout.tsx (saved choice, else the system setting).
+ * Light theme: warm parchment rather than white paper (nothing lighter than #f8f1e4,
+ * so it doesn't glare), warm brown-black ink at ~11:1 instead of ~14:1, and a deeper
+ * bronze gold so gold text keeps its contrast. Every text colour stays at or above
+ * WCAG AA (4.5:1) on bg, surface and surface-raised. Chosen before first paint by
+ * the script in app/layout.tsx (saved choice, else the system setting).
  */
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg: #f6f2e9;
-  --bg-sunken: #eee8db;
-  --surface: #fbf8f1;
-  --surface-raised: #fffcf6;
-  --surface-hover: #efe9dc;
-  --glass: rgba(251, 248, 241, 0.66);
-  --glass-strong: rgba(251, 248, 241, 0.88);
-  --tint: 74 58 32;
+  --bg: #efe5d3;
+  --bg-sunken: #e7dcc7;
+  --surface: #f4ecdd;
+  --surface-raised: #f8f1e4;
+  --surface-hover: #eadfcb;
+  --glass: rgba(244, 236, 221, 0.68);
+  --glass-strong: rgba(244, 236, 221, 0.9);
+  --tint: 92 64 30;
 
-  --line: #e3dccd;
-  --line-strong: #d1c7b3;
-  --line-focus: #94640f;
+  --line: #e0d3bc;
+  --line-strong: #cdbd9f;
+  --line-focus: #8a5a0c;
 
-  --ink: #2b2620;
-  --ink-strong: #1a1611;
-  --ink-2: #5e564a;
-  --ink-3: #7d7466;
+  --ink: #3a2f24;
+  --ink-strong: #2a2119;
+  --ink-2: #5f5242;
+  --ink-3: #76685a;
 
-  --accent: #94640f;
-  --accent-hover: #7b520a;
-  --accent-ink: #fbf8f1;
-  --accent-soft: rgba(176, 122, 26, 0.12);
-  --accent-line: rgba(148, 100, 15, 0.38);
+  --accent: #8a5a0c;
+  --accent-hover: #714907;
+  --accent-ink: #f8f1e4;
+  --accent-soft: rgba(168, 112, 20, 0.13);
+  --accent-line: rgba(138, 90, 12, 0.4);
 
-  --ok: #2e7d43;
-  --ok-soft: rgba(46, 125, 67, 0.1);
-  --ok-line: rgba(46, 125, 67, 0.34);
-  --warn: #b0561a;
-  --warn-soft: rgba(176, 86, 26, 0.1);
-  --warn-line: rgba(176, 86, 26, 0.34);
-  --critical: #b8392a;
-  --critical-soft: rgba(184, 57, 42, 0.1);
-  --critical-line: rgba(184, 57, 42, 0.36);
-  --neutral-soft: rgba(94, 86, 74, 0.08);
-  --info: #2d6a92;
-  --info-soft: rgba(45, 106, 146, 0.1);
+  --ok: #2a7340;
+  --ok-soft: rgba(42, 115, 64, 0.11);
+  --ok-line: rgba(42, 115, 64, 0.34);
+  --warn: #a24f17;
+  --warn-soft: rgba(162, 79, 23, 0.11);
+  --warn-line: rgba(162, 79, 23, 0.34);
+  --critical: #ab3426;
+  --critical-soft: rgba(171, 52, 38, 0.1);
+  --critical-line: rgba(171, 52, 38, 0.36);
+  --neutral-soft: rgba(95, 82, 66, 0.09);
+  --info: #2a628a;
+  --info-soft: rgba(42, 98, 138, 0.1);
 
-  --shadow: 0 12px 32px rgba(74, 58, 32, 0.12);
+  --shadow: 0 12px 32px rgba(92, 64, 30, 0.14);
   --grid-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%234a3a20' stroke-opacity='0.08'/%3E%3C/svg%3E");
 }
