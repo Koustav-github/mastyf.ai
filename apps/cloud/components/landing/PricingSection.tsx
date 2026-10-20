@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
+import { RazorpayCheckoutButton } from '@/components/billing/RazorpayCheckoutButton';
 import { Flip } from '@/components/ui/Flip';
+import { isPaidPlanId } from '@/lib/billing/plans';
 import { PRICING_TIERS } from './stats';
 
 /** The five plans at a glance. Full feature lists live in the docs (#plans). */
-export function PricingSection() {
+export function PricingSection({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <section className="section section--flush-top" id="pricing" aria-label="Plans">
       <div className="tiers tiers--crisp" data-reveal>
@@ -39,7 +41,14 @@ export function PricingSection() {
               </ul>
 
               <div className="tier__cta">
-                {tier.external ? (
+                {isPaidPlanId(tier.id) ? (
+                  <RazorpayCheckoutButton
+                    plan={tier.id}
+                    signedIn={signedIn}
+                    label={signedIn ? tier.shortCta : `Sign in to buy`}
+                    className={buttonClass}
+                  />
+                ) : tier.external ? (
                   <a href={tier.href} className={buttonClass} target="_blank" rel="noopener noreferrer">
                     {tier.shortCta}
                   </a>
@@ -63,7 +72,7 @@ export function PricingSection() {
           Questions and answers
           <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
         </Link>
-        <span>Payments by Lemon Squeezy. License keys arrive instantly.</span>
+        <span>Payments by Razorpay (UPI, cards, netbanking). Your license key appears right after payment.</span>
       </div>
     </section>
   );

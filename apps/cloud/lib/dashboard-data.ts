@@ -143,6 +143,7 @@ export async function activeLicense(orgId: string): Promise<ActiveLicense> {
     await getDb().execute(sql`
       SELECT tier, max_instances, max_teams, max_users, activated_at, expires_at
       FROM licenses WHERE org_id = ${orgId} AND revoked_at IS NULL
+        AND (expires_at IS NULL OR expires_at > NOW())
       ORDER BY activated_at DESC LIMIT 1
     `),
   );

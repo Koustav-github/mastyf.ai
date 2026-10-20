@@ -2,13 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { resolveOrgAccess } from '@/lib/org-access';
 import { sql } from 'drizzle-orm';
-
-const TIERS: Record<string, { maxInstances: number; maxTeams: number; maxUsers: number; features: string[] }> = {
-  free:       { maxInstances: 1,  maxTeams: 0, maxUsers: 1,  features: ['policy', 'audit', 'dashboard'] },
-  pro:        { maxInstances: 5,  maxTeams: 3, maxUsers: 10, features: ['policy', 'audit', 'dashboard', 'fleet', 'cost', 'health'] },
-  team:       { maxInstances: 25, maxTeams: 10, maxUsers: 50, features: ['policy', 'audit', 'dashboard', 'fleet', 'cost', 'health', 'ai', 'swarm'] },
-  enterprise: { maxInstances: -1, maxTeams: -1, maxUsers: -1, features: ['policy', 'audit', 'dashboard', 'fleet', 'cost', 'health', 'ai', 'swarm', 'admin', 'sso'] },
-};
+import { LICENSE_TIERS as TIERS } from '@/lib/license-tiers';
 
 export async function GET(req: Request) {
   const access: any = await resolveOrgAccess(req);

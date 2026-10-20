@@ -3,6 +3,7 @@ import { validateLemonLicense, activateLemonLicense } from '@/lib/lemon-license-
 import { getDb, cloudDbAvailable } from '@/lib/db';
 import { commercialEntitlements } from '@/lib/db/schema';
 import { hashProLicenseKey } from '@/lib/pro-license-keys';
+import { entitlementActive } from '@/lib/billing/license-keys';
 
 export async function POST(request: Request) {
   let body: any = {};
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
         where: (fields, { eq }) => eq(fields.licenseKeyHash, keyHash),
       });
 
-      if (entitlement && entitlement.status === 'active') {
+      if (entitlement && entitlementActive(entitlement)) {
         return NextResponse.json({
           valid: true,
           status: 'active',

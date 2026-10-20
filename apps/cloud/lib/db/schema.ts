@@ -169,8 +169,29 @@ export const commercialEntitlements = pgTable('commercial_entitlements', {
   activationLimit: integer('activation_limit').notNull().default(2),
   instancesCount: integer('instances_count').notNull().default(0),
   lastValidatedAt: timestamp('last_validated_at', { mode: 'date', withTimezone: true }),
+  source: text('source').notNull().default('lemonsqueezy'), // lemonsqueezy, razorpay
+  /** Paid-through time for keys we issue (razorpay); null for Lemon Squeezy keys, which Lemon tracks. */
+  expiresAt: timestamp('expires_at', { mode: 'date', withTimezone: true }),
   createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Razorpay orders we created; a paid one buys its plan for the workspace (lib/billing/fulfillment.ts). */
+export const razorpayOrders = pgTable('razorpay_orders', {
+  id: text('id').primaryKey(), // Razorpay order id (order_…)
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  orgId: text('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  plan: text('plan').notNull(), // developer, team
+  amount: integer('amount').notNull(), // paise
+  currency: text('currency').notNull(),
+  status: text('status').notNull().default('created'), // created, paid
+  paymentId: text('payment_id').unique(),
+  paidAt: timestamp('paid_at', { mode: 'date', withTimezone: true }),
+  createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
 });
 
 export const hfEntitlements = pgTable('hf_entitlements', {
