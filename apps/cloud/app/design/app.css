@@ -126,7 +126,11 @@
 
 .app__foot {
   display: grid;
+  /* An implicit `auto` column grows to its widest row's full text; minmax(0, 1fr) holds
+     the rows to the sidebar's width so the email row can shrink instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-2);
+  min-width: 0;
   margin-top: auto;
   padding: var(--s-4) var(--s-2) 0;
   border-top: 1px solid var(--line);
@@ -137,6 +141,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--s-2);
+  min-width: 0;
   color: var(--ink-3);
   font-size: var(--fs-label);
 }
