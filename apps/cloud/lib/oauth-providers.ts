@@ -73,9 +73,17 @@ async function githubUserinfo({ tokens }: { tokens: { access_token?: string } })
   return { ...profile, email, email_verified: email !== null };
 }
 
-/** Sign-in check: Google and GitHub must vouch for the email; the demo and local accounts are fixed. */
-export function oauthEmailVerified(provider: string | undefined, profile: unknown): boolean {
-  if (provider !== 'google' && provider !== 'github') return true;
+/**
+ * Sign-in check: a real Google or GitHub sign-in must vouch for the email. The demo, the
+ * local developer account and the development stand-ins (which reuse the ids "github" and
+ * "google") are credentials sign-ins with fixed emails and are never linked by email.
+ */
+export function oauthEmailVerified(
+  account: { provider?: string; type?: string } | null | undefined,
+  profile: unknown,
+): boolean {
+  const realOAuth = account?.type === 'oauth' || account?.type === 'oidc';
+  if (!realOAuth || (account?.provider !== 'google' && account?.provider !== 'github')) return true;
   return (profile as { email_verified?: unknown } | null | undefined)?.email_verified === true;
 }
 

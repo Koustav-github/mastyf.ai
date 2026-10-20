@@ -192,16 +192,24 @@ describe('accounts are only linked through a verified email', () => {
     }
   });
 
+  const google = { provider: 'google', type: 'oidc' };
+  const github = { provider: 'github', type: 'oauth' };
+
   it('GitHub and Google sign-in need the provider to vouch for the email', () => {
-    expect(oauthEmailVerified('google', { email_verified: true })).toBe(true);
-    expect(oauthEmailVerified('google', { email_verified: false })).toBe(false);
-    expect(oauthEmailVerified('google', {})).toBe(false);
-    expect(oauthEmailVerified('github', { email_verified: true })).toBe(true);
-    expect(oauthEmailVerified('github', undefined)).toBe(false);
+    expect(oauthEmailVerified(google, { email_verified: true })).toBe(true);
+    expect(oauthEmailVerified(google, { email_verified: false })).toBe(false);
+    expect(oauthEmailVerified(google, {})).toBe(false);
+    expect(oauthEmailVerified(github, { email_verified: true })).toBe(true);
+    expect(oauthEmailVerified(github, undefined)).toBe(false);
   });
 
   it('the demo and local accounts are not affected', () => {
-    expect(oauthEmailVerified(DEMO_AUTH_PROVIDER_ID, undefined)).toBe(true);
-    expect(oauthEmailVerified(DEV_AUTH_PROVIDER_ID, undefined)).toBe(true);
+    expect(oauthEmailVerified({ provider: DEMO_AUTH_PROVIDER_ID, type: 'credentials' }, undefined)).toBe(true);
+    expect(oauthEmailVerified({ provider: DEV_AUTH_PROVIDER_ID, type: 'credentials' }, undefined)).toBe(true);
+  });
+
+  it('the local-development GitHub/Google stand-ins (credentials, no profile) still sign in', () => {
+    expect(oauthEmailVerified({ provider: 'github', type: 'credentials' }, undefined)).toBe(true);
+    expect(oauthEmailVerified({ provider: 'google', type: 'credentials' }, undefined)).toBe(true);
   });
 });

@@ -14,6 +14,7 @@ import {
   Server,
   Settings,
   ShieldCheck,
+  UserRound,
   Users,
 } from 'lucide-react';
 import { signOutAction } from '@/app/actions';
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/threat-feed', label: 'Threat feed', icon: Flame },
   { href: '/dashboard/trust-scores', label: 'Trust scores', icon: Award },
   { href: '/dashboard/license', label: 'License', icon: KeyRound },
+  { href: '/dashboard/account', label: 'Account', icon: UserRound },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   { href: '/dashboard/connect', label: 'Link a proxy', icon: Link2 },
 ];
