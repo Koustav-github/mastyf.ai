@@ -5,21 +5,31 @@
 /* ------------------------------------------------------------ shell */
 
 .app {
+  --side-w: 248px;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
   min-height: 100vh;
   background: var(--bg);
 }
 
+/* Pinned to the viewport: it stays put while the page scrolls, and only scrolls itself
+   (vertically) when the window is too short for it. Never sideways. */
 .app__side {
-  position: sticky;
+  position: fixed;
   top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   gap: var(--s-5);
+  width: var(--side-w);
   height: 100vh;
+  height: 100dvh;
   padding: var(--s-5) var(--s-3) var(--s-4);
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--surface);
   border-right: 1px solid var(--line);
 }
@@ -135,7 +145,16 @@
   color: var(--ink-2);
 }
 
+/* The theme toggle and sign-out button keep their size; the email gives way. */
+.app__row > * {
+  flex-shrink: 0;
+}
+
 .app__email {
+  /* A flex item won't shrink below its text without min-width: 0, so a long address
+     widened the sidebar and scrolled it sideways instead of ending in "…". */
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--ink-2);
   text-overflow: ellipsis;
@@ -143,6 +162,7 @@
 }
 
 .app__main {
+  grid-column: 2;
   min-width: 0;
 }
 
@@ -160,15 +180,21 @@
 
   .app__side {
     position: sticky;
+    bottom: auto;
     z-index: 20;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-3);
+    width: auto;
     height: auto;
     padding: var(--s-3) var(--s-4);
     overflow: visible;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .app__main {
+    grid-column: auto;
   }
 
   .app__org {
