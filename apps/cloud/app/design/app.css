@@ -371,6 +371,52 @@
   border-color: var(--critical-line);
 }
 
+/* Razorpay checkout button and its result (pricing cards, License page table cells). */
+.checkout {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s-2);
+}
+
+.num .checkout {
+  align-items: flex-end;
+}
+
+.checkout .notice {
+  max-width: 26rem;
+  text-align: left;
+}
+
+.checkout__done {
+  margin: 0;
+}
+
+.license-key {
+  display: grid;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+.license-key__label {
+  margin: 0;
+}
+
+.license-key__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.license-key__value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-body);
+  color: var(--ink-strong);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

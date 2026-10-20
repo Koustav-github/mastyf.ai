@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, Check, Copy, Download } from 'lucide-react';
+import { formatPlanPrice } from '@/lib/billing/plans';
 
 type Props = {
   initialSession: boolean;
@@ -203,7 +204,7 @@ export function GatedDownloadBox({ version, sha256, checkoutUrl }: Props) {
               </p>
             ) : null}
             <a href={checkoutUrl} target="_blank" rel="noopener noreferrer" className="link-icon dl__buy">
-              No key yet? Get Developer Pro, $49/month
+              No key yet? Get Developer Pro, {formatPlanPrice('developer')} for 30 days
               <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden="true" />
             </a>
           </form>

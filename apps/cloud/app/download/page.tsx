@@ -3,13 +3,14 @@ import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteNav } from '@/components/SiteNav';
 import { GatedDownloadBox } from '@/components/download/GatedDownloadBox';
+import { formatPlanPrice } from '@/lib/billing/plans';
 import { CONTACT_EMAIL } from '@/lib/product-links';
 import { GITHUB_REPO_URL } from '@/lib/github-links';
 import { safeAuth } from '@/lib/safe-auth';
 
 const DMG_SHA = process.env.NEXT_PUBLIC_SHIELD_DMG_SHA256 || '9a48d91c89f02c91a0f837eb5f0821d3f94a81e9b2071d02c46f8812c9b10492';
 const VERSION = process.env.NEXT_PUBLIC_SHIELD_VERSION || '0.2.2';
-const CHECKOUT_URL = 'https://mastyfai.lemonsqueezy.com/checkout/buy/49323daa-90ef-4157-90b9-8706acd13fe6';
+const CHECKOUT_URL = '/pricing';
 
 export const metadata = {
   title: 'Download Mastyf Shield — Mastyf',
@@ -22,7 +23,8 @@ const STEPS = [
     title: 'Get a license key',
     body: (
       <>
-        Subscribe to Developer Pro ($49/month) on Lemon Squeezy. The key arrives by email.
+        Buy Developer Pro ({formatPlanPrice('developer')} for 30 days) on the <Link href="/pricing">pricing page</Link>.
+        The key appears right after payment and stays on your dashboard.
       </>
     ),
   },

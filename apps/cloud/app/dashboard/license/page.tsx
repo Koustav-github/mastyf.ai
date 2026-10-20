@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { PLAN_FOR_TIER } from '@/components/dashboard/plans';
 import { PRICING_TIERS } from '@/components/landing/stats';
+import { NewLicenseKeyButton } from '@/components/billing/NewLicenseKeyButton';
+import { RazorpayCheckoutButton } from '@/components/billing/RazorpayCheckoutButton';
+import { issuedLicenseSummary } from '@/lib/billing/license-keys';
+import { isPaidPlanId } from '@/lib/billing/plans';
 import { activeLicense, listInstances, listTeams, requireDashboard } from '@/lib/dashboard-data';
 import { formatCount, formatDate } from '@/lib/format';
 
@@ -11,9 +15,15 @@ function limitLabel(used: number, max: number, unlimited: boolean): string {
 }
 
 export default async function LicensePage() {
-  const { ctx } = await requireDashboard();
+  const { session, ctx } = await requireDashboard();
   const orgId = ctx.org.id;
-  const [license, instances, teams] = await Promise.all([activeLicense(orgId), listInstances(orgId), listTeams(orgId)]);
+  const email = session.user.email;
+  const [license, instances, teams, licenseKey] = await Promise.all([
+    activeLicense(orgId),
+    listInstances(orgId),
+    listTeams(orgId),
+    email ? issuedLicenseSummary(email) : null,
+  ]);
 
   const plan = PLAN_FOR_TIER[license.tier];
   const unlimited = license.tier === 'enterprise';
@@ -61,12 +71,53 @@ export default async function LicensePage() {
             <div className="metric">
               <span className="metric__label">Term</span>
               <span className="metric__value metric__value--text">
-                {license.expiresAt ? `Renews ${formatDate(license.expiresAt)}` : 'No expiry'}
+                {license.expiresAt ? `Paid through ${formatDate(license.expiresAt)}` : 'No expiry'}
               </span>
               {license.activatedAt ? (
                 <span className="metric__note">Since {formatDate(license.activatedAt)}</span>
               ) : null}
             </div>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="license-key">
+          <div className="panel__head">
+            <h2 id="license-key" className="panel__title">
+              License key
+            </h2>
+            {licenseKey ? (
+              <span className={`status ${licenseKey.active ? 'status--active' : 'status--warning'}`}>
+                <span className="status__mark">●</span>
+                {licenseKey.active ? 'Active' : 'Expired'}
+              </span>
+            ) : null}
+          </div>
+          <div className="panel__body">
+            {licenseKey ? (
+              <>
+                <dl className="kv">
+                  <div>
+                    <dt>Key</dt>
+                    <dd>
+                      <code>{licenseKey.preview ?? 'MG-****'}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{licenseKey.active ? 'Paid through' : 'Expired on'}</dt>
+                    <dd>{formatDate(licenseKey.expiresAt?.toISOString()) ?? '—'}</dd>
+                  </div>
+                </dl>
+                <p className="panel__text">
+                  Shield and the gateway check this key with Mastyf Cloud and stay unlocked until the date above.
+                  Buying again extends it; the key itself does not change.
+                </p>
+                <NewLicenseKeyButton />
+              </>
+            ) : (
+              <p className="panel__text" style={{ margin: 0 }}>
+                Buying Developer Pro or Team gives you a license key for Shield and the gateway.
+              </p>
+            )}
           </div>
         </section>
 
@@ -110,7 +161,14 @@ export default async function LicensePage() {
                         </td>
                         <td className="dim col-opt">{tier.highlights.join(', ')}</td>
                         <td className="num">
-                          {current ? (
+                          {isPaidPlanId(tier.id) ? (
+                            <RazorpayCheckoutButton
+                              plan={tier.id}
+                              signedIn
+                              label={current ? 'Renew 30 days' : tier.shortCta}
+                              className="btn btn-sm"
+                            />
+                          ) : current ? (
                             <span className="status status--active">Current</span>
                           ) : tier.external ? (
                             <a href={tier.href} className="btn btn-sm" target="_blank" rel="noopener noreferrer">

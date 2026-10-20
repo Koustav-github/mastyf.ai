@@ -1,3 +1,4 @@
+import { formatInr, formatPlanPrice } from '@/lib/billing/plans';
 import { SITE_NAME, ZENODO_DOI } from '@/lib/product-links';
 
 export const HERO_HEADLINE = {
@@ -305,10 +306,10 @@ export const PRICING_TIERS = [
     id: 'developer',
     audience: 'Developers using Claude Desktop, Cursor or Windsurf',
     highlights: ['Shield desktop app', 'Decisions in under 4.8µs', 'Live MCP CVE feed'],
-    shortCta: 'Subscribe',
+    shortCta: 'Buy',
     name: 'Developer Pro',
-    price: '$49',
-    billing: 'per month',
+    price: formatPlanPrice('developer'),
+    billing: 'per 30 days',
     description: 'For engineers securing local coding assistants (Claude Desktop, Cursor, Windsurf).',
     bullets: [
       'Commercial development runtime license',
@@ -316,21 +317,22 @@ export const PRICING_TIERS = [
       'Hardware-grade reference monitor (<4.8µs latency)',
       'Automated DIFC taint tracking & wire severance',
       'Continuous streaming MCP CVE threat intelligence',
-      'Instant license key delivery via Lemon Squeezy',
+      'License key the moment your payment clears',
     ],
-    cta: 'Subscribe Developer Pass ($49/mo)',
-    href: 'https://mastyfai.lemonsqueezy.com/checkout/buy/49323daa-90ef-4157-90b9-8706acd13fe6',
+    cta: `Buy Developer Pro (${formatPlanPrice('developer')} / 30 days)`,
+    // Checkout opens from the pricing page and the dashboard (RazorpayCheckoutButton); links land here.
+    href: '/dashboard/license',
     featured: true,
-    external: true,
+    external: false,
   },
   {
     id: 'team',
     audience: 'Teams shipping agents to customers',
     highlights: ['Up to 15 agent environments', 'Cloud Control Plane with roles', 'Attack tests in CI'],
-    shortCta: 'Subscribe',
+    shortCta: 'Buy',
     name: 'Team',
-    price: '$499',
-    billing: 'per month',
+    price: formatPlanPrice('team'),
+    billing: 'per 30 days',
     description: 'For fast-moving AI engineering teams deploying customer-facing autonomous agents.',
     bullets: [
       'Up to 15 protected agent environments',
@@ -341,10 +343,10 @@ export const PRICING_TIERS = [
       'SIEM webhook and telemetry export',
       'Priority email and Slack support',
     ],
-    cta: 'Subscribe Team Pass',
-    href: 'https://mastyfai.lemonsqueezy.com/checkout/buy/88fb8fb8-8b32-4a6c-8e2f-95cfda639946',
+    cta: `Buy Team (${formatPlanPrice('team')} / 30 days)`,
+    href: '/dashboard/license',
     featured: false,
-    external: true,
+    external: false,
   },
   {
     id: 'business',
@@ -352,7 +354,8 @@ export const PRICING_TIERS = [
     highlights: ['Up to 50 agent environments', 'Private VPC and Kubernetes', '99.9% uptime SLA'],
     shortCta: 'Start a 30-day pilot',
     name: 'Business',
-    price: '$1,999',
+    // $1,999 at ~₹95/$, like the Razorpay plans (lib/billing/plans.ts); sold through a pilot, not checkout.
+    price: formatInr(189_899),
     billing: 'per month',
     description: 'For mid-market companies scaling multi-agent production infrastructure.',
     bullets: [
@@ -376,7 +379,7 @@ export const PRICING_TIERS = [
     shortCta: 'Request a pilot',
     name: 'Enterprise',
     price: 'Custom',
-    billing: 'Starts ~$35k ARR',
+    billing: 'Starts ~₹33 lakh a year', // ~$35k ARR
     description: 'For regulated enterprises, financial institutions, and mission-critical systems.',
     bullets: [
       'Unlimited protected agent environments',

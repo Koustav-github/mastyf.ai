@@ -31,6 +31,7 @@ export async function GET(req: Request) {
     const licResult: any = await db.execute(sql`
       SELECT tier, features, max_instances FROM licenses
       WHERE org_id = ${access.orgId} AND revoked_at IS NULL
+        AND (expires_at IS NULL OR expires_at > NOW())
       ORDER BY activated_at DESC LIMIT 1
     `);
     const licRows = licResult?.rows || licResult || [];
@@ -56,6 +57,7 @@ export async function GET(req: Request) {
     const licResult: any = await db.execute(sql`
       SELECT tier, features, max_instances FROM licenses
       WHERE org_id = ${access.orgId} AND revoked_at IS NULL
+        AND (expires_at IS NULL OR expires_at > NOW())
       ORDER BY activated_at DESC LIMIT 1
     `);
     const licRows = licResult?.rows || licResult || [];

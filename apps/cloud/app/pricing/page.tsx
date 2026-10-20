@@ -23,7 +23,7 @@ export default async function PricingPage() {
             Free to self-host. Pay when you want the desktop app, a team workspace, or a governed fleet.
           </p>
         </header>
-        <PricingSection />
+        <PricingSection signedIn={!!session} />
       </main>
       <SiteFooter />
     </>

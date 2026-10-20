@@ -7,10 +7,35 @@ import { getDb, cloudDbAvailable } from '@/lib/db';
 import { commercialEntitlements, commercialSubscriptions } from '@/lib/db/schema';
 import { hashProLicenseKey } from '@/lib/pro-license-keys';
 import { isSubscriptionEntitled } from '@/lib/lemonsqueezy-webhook';
+import { entitlementActive, findIssuedEntitlement } from '@/lib/billing/license-keys';
 
 const FROZEN_MODEL_REPO = 'Rudraneel93/mastyf-guard-1.5b-v2-boundary-sharpened';
 const FROZEN_MODEL_REVISION = 'd59a6aa01f9139dff106146addb04109afa69c03';
 const GATEWAY_VERSION = '0.1.1';
+
+function renewedEntitlement(expiresDate: Date, instanceId: string | undefined) {
+  const graceDate = new Date(expiresDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const signedToken = signEntitlement({
+    schema: 1,
+    product: 'mastyf-guard-pro',
+    license_id: 'lic_renewed',
+    instance_id: instanceId || 'inst_default',
+    activation_id: `act_${randomUUID().replace(/-/g, '')}`,
+    model_repo: FROZEN_MODEL_REPO,
+    model_revision: FROZEN_MODEL_REVISION,
+    gateway_version: GATEWAY_VERSION,
+    issued_at: new Date().toISOString(),
+    expires_at: expiresDate.toISOString(),
+    grace_until: graceDate.toISOString(),
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: 'Entitlement token renewed successfully',
+    entitlement: signedToken,
+    instanceId,
+  });
+}
 
 /**
  * POST /api/v1/license/renew
@@ -30,6 +55,22 @@ export async function POST(request: Request) {
 
   if (!licenseKey) {
     return NextResponse.json({ error: 'licenseKey is required' }, { status: 400 });
+  }
+
+  // Keys issued for Razorpay payments: the token runs to the end of the paid period, no further.
+  const issued = await findIssuedEntitlement(licenseKey);
+  if (issued) {
+    if (!entitlementActive(issued) || !issued.expiresAt) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'This license key is no longer paid up. Renew your plan from the Mastyf dashboard.',
+          status: 'expired',
+        },
+        { status: 403 },
+      );
+    }
+    return renewedEntitlement(issued.expiresAt, instanceId);
   }
 
   // 1. Authoritative Instance Validation with Lemon Squeezy
@@ -103,32 +144,10 @@ export async function POST(request: Request) {
 
   // 3. Mint Extended Signed Entitlement Token
   const now = new Date();
-  const issuedAt = now.toISOString();
 
   // Extend 30 days from current period end or now
   const baseDate = currentPeriodEnd && currentPeriodEnd.getTime() > now.getTime() ? currentPeriodEnd : now;
   const expiresDate = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const graceDate = new Date(expiresDate.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const activationId = `act_${randomUUID().replace(/-/g, '')}`;
-  const signedToken = signEntitlement({
-    schema: 1,
-    product: 'mastyf-guard-pro',
-    license_id: 'lic_renewed',
-    instance_id: instanceId || validation.instanceId || 'inst_default',
-    activation_id: activationId,
-    model_repo: FROZEN_MODEL_REPO,
-    model_revision: FROZEN_MODEL_REVISION,
-    gateway_version: GATEWAY_VERSION,
-    issued_at: issuedAt,
-    expires_at: expiresDate.toISOString(),
-    grace_until: graceDate.toISOString(),
-  });
-
-  return NextResponse.json({
-    success: true,
-    message: 'Entitlement token renewed successfully',
-    entitlement: signedToken,
-    instanceId: instanceId || validation.instanceId,
-  });
+  return renewedEntitlement(expiresDate, instanceId || validation.instanceId);
 }

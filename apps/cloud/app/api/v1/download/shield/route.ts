@@ -4,6 +4,7 @@ import { validateLemonLicense, activateLemonLicense } from '@/lib/lemon-license-
 import { getDb, cloudDbAvailable } from '@/lib/db';
 import { commercialEntitlements, commercialCustomers } from '@/lib/db/schema';
 import { hashProLicenseKey } from '@/lib/pro-license-keys';
+import { entitlementActive } from '@/lib/billing/license-keys';
 
 const BASE_STORAGE_URL =
   process.env.SHIELD_STORAGE_DOWNLOAD_URL?.replace(/\/$/, '') ||
@@ -13,8 +14,7 @@ const DEFAULT_SHIELD_DOWNLOAD_URL =
   process.env.NEXT_PUBLIC_SHIELD_DMG_URL ||
   `${BASE_STORAGE_URL}/Mastyf-Shield-latest-arm64.dmg`;
 
-const CHECKOUT_URL =
-  'https://mastyfai.lemonsqueezy.com/checkout/buy/49323daa-90ef-4157-90b9-8706acd13fe6';
+const CHECKOUT_URL = `${(process.env.NEXT_PUBLIC_APP_URL || 'https://www.mastyf.ai').replace(/\/$/, '')}/pricing`;
 
 function resolveReleaseUrl(os?: string, arch?: string): string {
   const normOs = (os || '').toLowerCase();
@@ -58,12 +58,11 @@ export async function GET(request: Request) {
       });
 
       if (customer) {
-        const entitlement = await db.query.commercialEntitlements.findFirst({
-          where: (fields, { eq, and }) =>
-            and(eq(fields.customerId, customer.id), eq(fields.status, 'active')),
+        const entitlements = await db.query.commercialEntitlements.findMany({
+          where: (fields, { eq }) => eq(fields.customerId, customer.id),
         });
 
-        if (entitlement) {
+        if (entitlements.some((e) => entitlementActive(e))) {
           isAuthorized = true;
           authReason = 'session_entitlement';
         }
@@ -82,7 +81,7 @@ export async function GET(request: Request) {
         const entitlement = await db.query.commercialEntitlements.findFirst({
           where: (fields, { eq }) => eq(fields.licenseKeyHash, keyHash),
         });
-        if (entitlement && entitlement.status === 'active') {
+        if (entitlement && entitlementActive(entitlement)) {
           isAuthorized = true;
           authReason = 'database_license_key';
         }

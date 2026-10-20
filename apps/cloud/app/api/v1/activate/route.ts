@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { activateLemonLicense } from '@/lib/lemon-license-client';
+import { issuedLicenseActivation } from '@/lib/billing/license-keys';
 import { bindAndGrantHFAccess } from '@/lib/hf-binding-service';
 import { signEntitlement } from '@/lib/ed25519-signer';
 import { getDb, cloudDbAvailable } from '@/lib/db';
@@ -30,14 +31,17 @@ export async function POST(request: Request) {
 
   // Shield-only activations omit hfUsername. Guard model bind still requires it.
 
-  // 1. Authoritative License Activation via Lemon Squeezy License API
-  const lemonActivation = await activateLemonLicense({
-    licenseKey,
-    instanceName,
-    expectedStoreId: process.env.LEMONSQUEEZY_STORE_ID,
-    expectedProductId: process.env.LEMONSQUEEZY_PRODUCT_ID,
-    expectedVariantId: process.env.LEMONSQUEEZY_VARIANT_ID,
-  });
+  // 1. Authoritative License Activation: keys issued for Razorpay payments are checked against
+  //    our own records; any other key goes to the Lemon Squeezy License API.
+  const lemonActivation =
+    (await issuedLicenseActivation(licenseKey)) ??
+    (await activateLemonLicense({
+      licenseKey,
+      instanceName,
+      expectedStoreId: process.env.LEMONSQUEEZY_STORE_ID,
+      expectedProductId: process.env.LEMONSQUEEZY_PRODUCT_ID,
+      expectedVariantId: process.env.LEMONSQUEEZY_VARIANT_ID,
+    }));
 
   if (!lemonActivation.valid) {
     const statusCode = lemonActivation.status === 'rate_limited' ? 429 : 403;
