@@ -6,3 +6,29 @@ packages:
 
 ignoredBuiltDependencies:
   - better-sqlite3
+
+# pnpm-only (was `public-hoist-pattern[]` in .npmrc, which npm warns about as unknown).
+publicHoistPattern:
+  - iconv-lite
+
+# Deprecated packages we can't drop yet without breaking something. Only these exact
+# majors are muted, so a new deprecation still warns. Revisit when the reason goes away.
+allowedDeprecatedVersions:
+  # Successor @prometheus-io/client needs Node >= 22; @mastyf_ai/server supports Node >= 18.
+  prom-client: '15'
+  # From better-sqlite3 12; better-sqlite3 13 (no prebuild-install) needs Node >= 22.
+  prebuild-install: '7'
+  # From @opentelemetry/resource-detector-gcp → gcp-metadata 8 → gaxios 7 → rimraf 5, and
+  # vitest 3's coverage (test-exclude 7). Leaving needs OpenTelemetry core 3 and vitest 5.
+  # 10.5.0 is the patched 10.x release; the advisory was in glob's CLI, which nothing runs.
+  glob: '10'
+  # From node-fetch 3 (fetch-blob), which even the latest gaxios still uses.
+  node-domexception: '1'
+  # deploy/dashboard-spa; recharts 3 is a breaking upgrade of its chart components.
+  recharts: '2'
+  # Renamed to @opentelemetry/sdk-trace, which the whole OpenTelemetry 0.217 stack (sdk-node,
+  # exporters) still depends on under this name; the move comes with OpenTelemetry core 3.
+  '@opentelemetry/sdk-trace-base': '2'
+  # Dev-only (scenarios/real-life). Date versions are deprecated; the semver 2.x line needs
+  # Node >= 24, and engine-strict would fail installs on older Node.
+  '@modelcontextprotocol/server-filesystem': '2026'
