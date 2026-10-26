@@ -76,11 +76,12 @@ async function evaluateWithProxy(
     const res = await fetch(`${config.proxyUrl.replace(/\/$/, '')}/api/policy/test`, {
       method: 'POST',
       headers,
+      // `arguments` / `mode` are what /api/policy/test reads; `args` / `blockingMode` were ignored.
       body: JSON.stringify({
         tool: toolName,
         server: config.identityContext?.clientId || 'openai-agent',
-        args,
-        blockingMode: mode,
+        arguments: args,
+        mode,
       }),
       signal: AbortSignal.timeout(config.timeoutMs || 10_000),
     });

@@ -97,11 +97,12 @@ async function evaluateToolCall(
     const res = await fetch(`${baseUrl}/api/policy/test`, {
       method: 'POST',
       headers,
+      // `arguments` / `mode` are what /api/policy/test reads; `args` / `blockingMode` were ignored.
       body: JSON.stringify({
         tool: toolName,
         server: serverName,
-        args,
-        blockingMode: mode,
+        arguments: args,
+        mode,
       }),
       signal: controller.signal,
     });
@@ -200,7 +201,7 @@ export function createMastyfToolWrapper<TSchema extends Record<string, any> = Re
           body: JSON.stringify({
             tool: `${toolName}_response`,
             server: serverName,
-            args: { response: typeof result === 'string' ? result : JSON.stringify(result) },
+            arguments: { response: typeof result === 'string' ? result : JSON.stringify(result) },
           }),
           signal: AbortSignal.timeout(5000),
         });

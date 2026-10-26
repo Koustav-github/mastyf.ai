@@ -30,6 +30,15 @@ describe('OpenAI Agents guard', () => {
     expect(await guard.beforeToolCall(call)).toEqual({ allowed: false, reason: 'destructive' });
   });
 
+  it('sends the arguments and mode under the names the proxy reads', async () => {
+    const fetchMock = answer({ action: 'pass' });
+    vi.stubGlobal('fetch', fetchMock);
+    await createMastyfGuardMiddleware({ proxyUrl: PROXY }).beforeToolCall(call);
+    const sent = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(sent).toMatchObject({ tool: 'delete_files', arguments: { path: '/' }, mode: 'block' });
+    expect(sent).not.toHaveProperty('args');
+  });
+
   it('allows what the policy passes', async () => {
     vi.stubGlobal('fetch', answer({ action: 'pass' }));
     expect(await createMastyfGuardMiddleware({ proxyUrl: PROXY }).beforeToolCall(call)).toEqual({ allowed: true });
@@ -124,7 +133,7 @@ describe('LangChain wrapper and callback', () => {
     const callback = createMastyfAgentCallback({ proxyUrl: PROXY });
     await expect(callback.handleToolStart({ name: 'shell' }, 'rm -rf /')).rejects.toThrow(/dangerous shell/);
     const sent = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body));
-    expect(sent.args).toEqual({ input: 'rm -rf /' });
+    expect(sent.arguments).toEqual({ input: 'rm -rf /' });
   });
 
   it('callback fails closed when the proxy is down', async () => {

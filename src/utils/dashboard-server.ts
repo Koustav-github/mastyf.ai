@@ -1548,18 +1548,9 @@ export async function startDashboardServer(
       if (url === '/api/policy/test' && method === 'POST') {
         setCors();
         const body = await readBody(req);
-        const { runPolicyTest } = await import('../cli/policy-test.js');
-        const policyPath =
-          process.env['MASTYF_AI_POLICY_PATH'] ||
-          process.env['MASTYF_AI_POLICY_PATH'] ||
-          'default-policy.yaml';
-        const result = runPolicyTest({
-          policy: String(body.policyPath || policyPath),
-          tool: String(body.tool || 'unknown'),
-          args: JSON.stringify(body.arguments ?? {}),
-          server: String(body.server || 'dashboard-test'),
-          blockingMode: body.mode ? String(body.mode) : undefined,
-        });
+        const { policyTestRequest, runPolicyTest } = await import('../cli/policy-test.js');
+        const policyPath = process.env['MASTYF_AI_POLICY_PATH'] || 'default-policy.yaml';
+        const result = runPolicyTest(policyTestRequest(body, policyPath));
         writeJson(res, 200, result);
         return;
       }
