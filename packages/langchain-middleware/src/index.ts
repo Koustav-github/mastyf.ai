@@ -17,13 +17,22 @@
  *   })
  * );
  * ```
+ *
+ * Fails closed: in the default `block` mode a tool call runs only when the proxy answers
+ * `pass`. If the proxy is down, errors, times out or answers with something unexpected,
+ * the call is blocked. Set `failOpen: true` to let calls through in that case instead.
  */
+
+export type MastyfMode = 'audit' | 'warn' | 'block';
 
 export interface MastyfMiddlewareConfig {
   proxyUrl: string;
   apiKey?: string;
   tenantId?: string;
-  mode?: 'audit' | 'warn' | 'block';
+  /** block (default): deny what the policy denies. warn: log it and run anyway. audit: don't check. */
+  mode?: MastyfMode;
+  /** Run tool calls when the proxy can't give an answer. Default false (block them). */
+  failOpen?: boolean;
   timeoutMs?: number;
   skipTools?: string[];
   identityContext?: {
@@ -48,12 +57,23 @@ export interface EvaluationResponse {
   sanitizedInput?: Record<string, unknown>;
 }
 
+function resolveMode(config: MastyfMiddlewareConfig): MastyfMode {
+  return config.mode ?? 'block';
+}
+
+/** The proxy gave no usable answer: block unless the caller opted into failOpen. */
+function unavailable(config: MastyfMiddlewareConfig, rule: string, reason: string, latencyMs: number): MastyfEvaluation {
+  const allowed = config.failOpen === true;
+  return { allowed, action: allowed ? 'pass' : 'block', rule, reason, latencyMs };
+}
+
 async function evaluateToolCall(
   toolName: string,
   serverName: string,
   args: Record<string, unknown>,
   config: MastyfMiddlewareConfig,
 ): Promise<MastyfEvaluation> {
+  const mode = resolveMode(config);
   const start = Date.now();
   const baseUrl = config.proxyUrl.replace(/\/$/, '');
   const headers: Record<string, string> = {
@@ -77,11 +97,12 @@ async function evaluateToolCall(
     const res = await fetch(`${baseUrl}/api/policy/test`, {
       method: 'POST',
       headers,
+      // `arguments` / `mode` are what /api/policy/test reads; `args` / `blockingMode` were ignored.
       body: JSON.stringify({
         tool: toolName,
         server: serverName,
-        args,
-        blockingMode: config.mode,
+        arguments: args,
+        mode,
       }),
       signal: controller.signal,
     });
@@ -89,22 +110,20 @@ async function evaluateToolCall(
     clearTimeout(timeout);
 
     if (!res.ok) {
-      const latencyMs = Date.now() - start;
-      return {
-        allowed: config.mode !== 'block',
-        action: config.mode === 'block' ? 'block' : 'pass',
-        rule: 'proxy-unavailable',
-        reason: `Mastyf proxy returned HTTP ${res.status}`,
-        latencyMs,
-      };
+      return unavailable(config, 'proxy-unavailable', `Mastyf proxy returned HTTP ${res.status}`, Date.now() - start);
     }
 
     const data = await res.json();
     const latencyMs = Date.now() - start;
 
+    if (data?.action !== 'pass' && data?.action !== 'flag' && data?.action !== 'block') {
+      return unavailable(config, 'proxy-bad-response', 'Mastyf proxy returned an unrecognised response', latencyMs);
+    }
+
     return {
-      allowed: data.action === 'pass' || (data.action === 'flag' && config.mode !== 'block'),
-      action: data.action || 'pass',
+      // A flag is a deny in block mode and a warning otherwise.
+      allowed: data.action === 'pass' || (data.action === 'flag' && mode !== 'block'),
+      action: data.action,
       rule: data.rule || 'unknown',
       reason: data.reason || '',
       riskScore: data.riskScore,
@@ -113,16 +132,40 @@ async function evaluateToolCall(
     };
   } catch (err: any) {
     clearTimeout(timeout);
-    const latencyMs = Date.now() - start;
-
-    return {
-      allowed: config.mode !== 'block',
-      action: config.mode === 'block' ? 'block' : 'pass',
-      rule: 'proxy-unreachable',
-      reason: `Mastyf proxy unreachable: ${err.message}`,
-      latencyMs,
-    };
+    return unavailable(
+      config,
+      'proxy-unreachable',
+      `Mastyf proxy unreachable: ${err?.message || String(err)}`,
+      Date.now() - start,
+    );
   }
+}
+
+/** Throws in block mode when the call is denied; warns in warn mode; skips in audit mode. */
+async function enforce(
+  toolName: string,
+  serverName: string,
+  args: Record<string, unknown>,
+  config: MastyfMiddlewareConfig,
+  errorPrefix: string,
+): Promise<void> {
+  const mode = resolveMode(config);
+  if (mode === 'audit') return;
+
+  const evaluation = await evaluateToolCall(toolName, serverName, args, config);
+  if (evaluation.allowed) {
+    if (evaluation.action === 'flag') {
+      console.warn(`[Mastyf AI] Tool "${toolName}" flagged: ${evaluation.reason}`);
+    }
+    return;
+  }
+  if (mode === 'warn') {
+    console.warn(`[Mastyf AI] Tool "${toolName}" would be blocked: ${evaluation.reason} (rule: ${evaluation.rule})`);
+    return;
+  }
+  const error = new Error(`${errorPrefix}: ${evaluation.reason} (rule: ${evaluation.rule})`);
+  (error as any).mastyfEvaluation = evaluation;
+  throw error;
 }
 
 export function createMastyfToolWrapper<TSchema extends Record<string, any> = Record<string, any>>(
@@ -136,32 +179,16 @@ export function createMastyfToolWrapper<TSchema extends Record<string, any> = Re
     return baseTool;
   }
 
-  const safeConfig: Required<Pick<MastyfMiddlewareConfig, 'mode' | 'timeoutMs'>> = {
-    mode: config.mode || 'block',
-    timeoutMs: config.timeoutMs || 10_000,
-  };
+  const mode = resolveMode(config);
 
   const wrappedCall = async (input: TSchema, runManager?: any): Promise<any> => {
-    const args = typeof input === 'object' ? { ...input } : { input };
+    const args = typeof input === 'object' && input !== null ? { ...input } : { input };
 
-    if (safeConfig.mode !== 'audit') {
-      const evaluation = await evaluateToolCall(toolName, serverName, args, config);
-
-      if (!evaluation.allowed) {
-        const errorMsg = `Mastyf AI blocked tool "${toolName}": ${evaluation.reason} (rule: ${evaluation.rule})`;
-        const error = new Error(errorMsg);
-        (error as any).mastyfEvaluation = evaluation;
-        throw error;
-      }
-
-      if (evaluation.action === 'flag') {
-        console.warn(`[Mastyf AI] Tool "${toolName}" flagged: ${evaluation.reason}`);
-      }
-    }
+    await enforce(toolName, serverName, args, config, `Mastyf AI blocked tool "${toolName}"`);
 
     const result = await baseTool.call(input, runManager);
 
-    if (safeConfig.mode !== 'audit') {
+    if (mode !== 'audit') {
       const start = Date.now();
       try {
         await fetch(`${config.proxyUrl.replace(/\/$/, '')}/api/policy/test`, {
@@ -174,7 +201,7 @@ export function createMastyfToolWrapper<TSchema extends Record<string, any> = Re
           body: JSON.stringify({
             tool: `${toolName}_response`,
             server: serverName,
-            args: { response: typeof result === 'string' ? result : JSON.stringify(result) },
+            arguments: { response: typeof result === 'string' ? result : JSON.stringify(result) },
           }),
           signal: AbortSignal.timeout(5000),
         });
@@ -201,29 +228,21 @@ export function createMastyfAgentCallback(config: MastyfMiddlewareConfig): any {
 
     async handleToolStart(tool: { name: string }, input: string): Promise<void> {
       toolCallCount++;
+      // Plain-string tool input is still checked, as { input }; it used to skip the check.
+      let args: Record<string, unknown>;
       try {
-        const args = JSON.parse(input);
-        toolCalls.push({
-          tool: tool.name,
-          args,
-          timestamp: new Date().toISOString(),
-        });
-
-        const evaluation = await evaluateToolCall(
-          tool.name,
-          config.identityContext?.clientId || 'langchain-agent',
-          args,
-          config,
-        );
-
-        if (!evaluation.allowed) {
-          const error = new Error(`Mastyf AI blocked: ${evaluation.reason}`);
-          (error as any).mastyfEvaluation = evaluation;
-          throw error;
-        }
-      } catch (err: any) {
-        if (err.mastyfEvaluation) throw err;
+        const parsed = JSON.parse(input);
+        args = parsed && typeof parsed === 'object' ? parsed : { input: parsed };
+      } catch {
+        args = { input };
       }
+      toolCalls.push({
+        tool: tool.name,
+        args,
+        timestamp: new Date().toISOString(),
+      });
+
+      await enforce(tool.name, config.identityContext?.clientId || 'langchain-agent', args, config, 'Mastyf AI blocked');
     },
 
     getStats() {

@@ -237,31 +237,46 @@ export class LicenseClient {
     }
   }
 
-  async exchangeCloudToken(token: string): Promise<{
-    sessionToken: string;
-    tenantSlug: string;
-    features: string[];
-    cloudBillingUrl: string;
-  } | null> {
+  /**
+   * Redeems a "Launch dashboard" token with the control plane, authenticated by this
+   * workspace's API key. The cloud returns who is signing in directly over this HTTPS call,
+   * so no cloud secret has to live on this host. `session` is absent from older control
+   * planes, which sent an HMAC-signed `sessionToken` instead.
+   */
+  async exchangeCloudToken(token: string): Promise<CloudExchangeResult | null> {
     if (!this.config.controlPlaneUrl) return null;
+    const apiKey = cloudApiKey();
+    if (!apiKey) return null;
 
     const url = `${this.config.controlPlaneUrl}/api/v1/license/exchange`;
     try {
       const res = await this.fetchFn(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({ token }),
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) return null;
-      return (await res.json()) as {
-        sessionToken: string;
-        tenantSlug: string;
-        features: string[];
-        cloudBillingUrl: string;
-      };
+      return (await res.json()) as CloudExchangeResult;
     } catch {
       return null;
     }
   }
+}
+
+export type CloudExchangeResult = {
+  session?: { tenantSlug: string; identity: string; roles: string[]; exp: number };
+  /** Legacy control planes only. */
+  sessionToken?: string;
+  tenantSlug: string;
+  features: string[];
+  cloudBillingUrl: string;
+};
+
+/** The workspace API key this proxy uses with the control plane (as control-plane-client does). */
+export function cloudApiKey(env: NodeJS.ProcessEnv = process.env): string | null {
+  const explicit = env['MASTYF_AI_CLOUD_API_KEY']?.trim();
+  if (explicit) return explicit;
+  const licenseKey = env['MASTYF_AI_LICENSE_KEY']?.trim();
+  return licenseKey && isCloudLicenseKey(licenseKey) ? licenseKey : null;
 }

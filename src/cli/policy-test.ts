@@ -3,13 +3,9 @@ import { load } from 'js-yaml';
 import { PolicyEngine } from '../policy/policy-engine.js';
 import type { CallContext, PolicyConfig } from '../policy/policy-types.js';
 
-export interface PolicyTestOptions {
-  policy: string;
-  tool: string;
-  args: string;
-  server?: string;
-  blockingMode?: string;
-}
+import type { PolicyTestOptions } from './policy-test-request.js';
+
+export { policyTestRequest, type PolicyTestOptions } from './policy-test-request.js';
 
 export interface PolicyTestResult {
   action: string;

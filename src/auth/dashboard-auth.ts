@@ -535,7 +535,7 @@ ${csrfField}
   ): string {
     if (!this.config.jwtSecret) {
       throw new Error(
-        'Set DASHBOARD_JWT_SECRET or MASTYF_AI_CLOUD_JWT_SECRET (same value as cloud AUTH_SECRET)',
+        "Set DASHBOARD_JWT_SECRET to a random value of this host's own (never the cloud's AUTH_SECRET)",
       );
     }
     Logger.info(`[dashboard-auth] Cloud session for ${identity} tenant=${tenantSlug}`);

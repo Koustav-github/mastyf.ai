@@ -8,6 +8,31 @@ export type CloudSessionPayload = {
   exp: number;
 };
 
+/**
+ * The session the control plane returned from /api/v1/license/exchange. It arrives over the
+ * proxy's own API-key-authenticated HTTPS call, so it needs no signature check; this only
+ * rejects malformed or expired claims and, when this host is pinned to a workspace
+ * (MASTYF_AI_TENANT_ID), claims for a different one.
+ */
+export function cloudSessionFromClaims(
+  claims: unknown,
+  expectedTenant: string | undefined = process.env['MASTYF_AI_TENANT_ID']?.trim() || undefined,
+): CloudSessionPayload | null {
+  if (!claims || typeof claims !== 'object') return null;
+  const c = claims as Record<string, unknown>;
+  if (typeof c.tenantSlug !== 'string' || !c.tenantSlug) return null;
+  if (typeof c.identity !== 'string' || !c.identity) return null;
+  if (typeof c.exp !== 'number' || c.exp < Math.floor(Date.now() / 1000)) return null;
+  if (expectedTenant && c.tenantSlug !== expectedTenant) return null;
+  const roles = Array.isArray(c.roles) ? c.roles.filter((r): r is string => typeof r === 'string') : [];
+  return { tenantSlug: c.tenantSlug, identity: c.identity, roles, exp: c.exp };
+}
+
+/**
+ * Legacy: control planes before API-key exchange returned an HMAC-signed session that this
+ * host could only check by holding the cloud's own secret. Kept so an older self-hosted
+ * control plane still works; mastyf.ai Cloud no longer sends these.
+ */
 export function verifyCloudSessionToken(token: string): CloudSessionPayload | null {
   const secret =
     process.env['MASTYF_AI_CLOUD_JWT_SECRET'] ??

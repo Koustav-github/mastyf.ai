@@ -14,9 +14,10 @@ export default async function ConnectMastyfAiPage() {
 MASTYF_AI_MULTI_TENANT_ENABLED=true
 MASTYF_AI_TENANT_ID=${ctx.org.slug}
 MASTYF_AI_CONTROL_PLANE_URL=${appUrl()}
-# Same value as AUTH_SECRET in ${SITE_NAME} Cloud:
-MASTYF_AI_CLOUD_JWT_SECRET=<paste-cloud-AUTH_SECRET>
-DASHBOARD_JWT_SECRET=<same-as-MASTYF_AI_CLOUD_JWT_SECRET>
+# This workspace's API key: create one under Settings → API key.
+MASTYF_AI_CLOUD_API_KEY=<your-workspace-api-key>
+# A random secret of this host's own, for its dashboard sessions: openssl rand -base64 32
+DASHBOARD_JWT_SECRET=<random-secret-for-this-host>
 `;
 
   return (
@@ -41,6 +42,11 @@ DASHBOARD_JWT_SECRET=<same-as-MASTYF_AI_CLOUD_JWT_SECRET>
               and downloads the current policy.
             </p>
             <pre className="envblock">{envBlock}</pre>
+            <p className="notice notice--warn" style={{ marginTop: 'var(--s-3)' }}>
+              The proxy only ever needs this workspace&rsquo;s API key. Never give a proxy {SITE_NAME} Cloud&rsquo;s own
+              secrets (<code>AUTH_SECRET</code>, <code>LICENSE_JWT_SECRET</code>): they would let it sign in as anyone.
+              If an older setup used <code>MASTYF_AI_CLOUD_JWT_SECRET</code>, remove it.
+            </p>
           </div>
         </section>
 

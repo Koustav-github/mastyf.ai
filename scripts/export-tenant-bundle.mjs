@@ -52,10 +52,10 @@ async function main() {
 MASTYF_AI_MULTI_TENANT_ENABLED=true
 MASTYF_AI_TENANT_ID=${org.slug}
 MASTYF_AI_CONTROL_PLANE_URL=${baseUrl}
-# Optional: sync policy via API
-# MASTYF_AI_LICENSE_KEY=${apiKey}
+# Workspace API key: policy sync, fleet telemetry and "Launch dashboard" sign-in
+MASTYF_AI_CLOUD_API_KEY=${apiKey}
+# A random secret of this host's own (openssl rand -base64 32). Never the cloud's AUTH_SECRET.
 DASHBOARD_JWT_SECRET=<generate-a-secret>
-MASTYF_AI_CLOUD_JWT_SECRET=<match-cloud-LICENSE_JWT_SECRET-or-AUTH_SECRET>
 # Mount ${tenantDir}/policy.yaml → policy-templates/tenants/${org.slug}/policy.yaml
 `;
   writeFileSync(envPath, envBlock);
