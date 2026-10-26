@@ -126,7 +126,7 @@ export default async function LicensePage() {
             <h2 id="plans" className="panel__title">
               Plans
             </h2>
-            <Link href="/docs#plans" className="link-icon">
+            <Link href="/docs/plans" className="link-icon">
               Every feature
               <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
             </Link>

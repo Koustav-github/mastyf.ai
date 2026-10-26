@@ -33,11 +33,11 @@ export default async function PlatformPage() {
               <Download size={14} strokeWidth={2} aria-hidden="true" />
               Download Shield
             </Link>
-            <Link href="/docs#components" className="btn">
+            <Link href="/docs/how-it-works#components" className="btn">
               Read the component docs
               <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
             </Link>
-            <Link href="/docs#compare" className="link-icon">
+            <Link href="/docs/performance#compare" className="link-icon">
               How Mastyf compares
               <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
             </Link>

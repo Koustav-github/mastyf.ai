@@ -73,7 +73,7 @@ export default async function ResearchPage() {
         <section className="section section--flush-top research-reader" aria-label="Read the paper">
           <PaperReader />
           <p className="research-reader__more">
-            <Link href="/docs#paper" className="link-icon">
+            <Link href="/docs/security-model#paper" className="link-icon">
               Theorems, proofs and results, explained in the docs
               <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
             </Link>

@@ -25,7 +25,7 @@ export function HowItWorks() {
           <p className="eyebrow">How it works</p>
           <h2 id="how-title">One boundary between the model and your systems</h2>
         </div>
-        <Link href="/docs#how-it-works" className="link-icon sec-head__link">
+        <Link href="/docs/how-it-works" className="link-icon sec-head__link">
           How enforcement works
           <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
         </Link>
@@ -89,7 +89,7 @@ export function ProductRow() {
           <p className="eyebrow">Platform — five parts</p>
           <h2 id="products-title">One policy, wherever your agents run</h2>
         </div>
-        <Link href="/docs#components" className="link-icon sec-head__link">
+        <Link href="/docs/how-it-works#components" className="link-icon sec-head__link">
           Compare the components
           <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
         </Link>
@@ -137,7 +137,7 @@ export function ProofRow() {
           <h2 id="proof-title">Measured, with the method published</h2>
         </div>
         <span className="sec-head__links">
-          <Link href="/docs#benchmarks" className="link-icon">
+          <Link href="/docs/performance#benchmarks" className="link-icon">
             Benchmarks and methodology
             <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
           </Link>
@@ -176,7 +176,7 @@ export function ClosingCta() {
           <Download size={16} strokeWidth={2} aria-hidden="true" />
           <Flip>Download Mastyf Shield</Flip>
         </Link>
-        <Link href="/docs#quickstart" className="btn btn-lg" data-magnetic>
+        <Link href="/docs/getting-started#quickstart" className="btn btn-lg" data-magnetic>
           <Terminal size={16} strokeWidth={1.75} aria-hidden="true" />
           <Flip light="var(--accent)">Quickstart</Flip>
         </Link>

@@ -104,7 +104,7 @@ export const PRODUCT_FAMILY = [
       'Human-in-the-loop approval before policy updates',
       'Closed-loop feedback from runtime alerts into test fixtures',
     ],
-    href: '/docs#swarm',
+    href: '/docs/how-it-works#components',
     badge: 'Adversarial CI',
   },
   {
@@ -195,7 +195,7 @@ export const SHOWCASE_TABS = [
     bullets: ['Continuous CI/CD automated red-teaming', 'Threat Lab human-in-the-loop attack mutation', 'Runtime alerts automatically enrich regression fixtures'],
     image: '/assets/showcase/dashboard.png',
     imageAlt: 'Mastyf Security Swarm adversarial testing interface',
-    href: '/docs#swarm',
+    href: '/docs/how-it-works#components',
     cta: 'See Swarm Hardening Loop',
     external: false,
     demo: 'cost' as const,
