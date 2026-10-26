@@ -65,8 +65,11 @@ jobs:
           }
           EOF
           chmod 644 "$RUNNER_TEMP/mastyf/mcp.json"
+          # Host networking: the dashboard binds 127.0.0.1 inside the container (it refuses
+          # 0.0.0.0 while auth is disabled), which a -p port mapping can't reach. With the
+          # host's network, the container's loopback is the runner's, so it stays local-only.
           docker run -d --name mastyf-ai \
-            -p 4000:4000 -p 9090:9090 \
+            --network host \
             -v "$RUNNER_TEMP/mastyf/mcp.json:/etc/mastyf-ai/mcp.json:ro" \
             -e MASTYF_AI_POLICY_PATH=/app/default-policy.yaml \
             -e MASTYF_AI_BLOCKING_MODE=block \
