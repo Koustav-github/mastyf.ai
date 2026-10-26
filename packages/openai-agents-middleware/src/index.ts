@@ -19,13 +19,22 @@
  *   middleware: [guard],
  * });
  * ```
+ *
+ * Fails closed: in the default `block` mode a tool call runs only when the proxy answers
+ * `pass`. If the proxy is down, errors, times out or answers with something unexpected,
+ * the call is blocked. Set `failOpen: true` to let calls through in that case instead.
  */
+
+export type MastyfGuardMode = 'audit' | 'warn' | 'block';
 
 export interface MastyfGuardConfig {
   proxyUrl: string;
   apiKey?: string;
   tenantId?: string;
-  mode?: 'audit' | 'warn' | 'block';
+  /** block (default): deny what the policy denies. warn: log it and run anyway. audit: don't check. */
+  mode?: MastyfGuardMode;
+  /** Run tool calls when the proxy can't give an answer. Default false (block them). */
+  failOpen?: boolean;
   timeoutMs?: number;
   blockedTools?: string[];
   identityContext?: {
@@ -35,15 +44,33 @@ export interface MastyfGuardConfig {
   };
 }
 
+export type MastyfGuardEvaluation = {
+  allowed: boolean;
+  reason: string;
+  /** True when the proxy gave no usable answer (unreachable, HTTP error, bad response). */
+  unavailable?: boolean;
+};
+
+function resolveMode(config: MastyfGuardConfig): MastyfGuardMode {
+  return config.mode ?? 'block';
+}
+
 async function evaluateWithProxy(
   toolName: string,
   args: Record<string, unknown>,
   config: MastyfGuardConfig,
-): Promise<{ allowed: boolean; reason: string }> {
+): Promise<MastyfGuardEvaluation> {
+  const mode = resolveMode(config);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
   if (config.tenantId) headers['X-Tenant-Id'] = config.tenantId;
   if (config.identityContext?.userId) headers['X-User-Id'] = config.identityContext.userId;
+
+  const unavailable = (reason: string): MastyfGuardEvaluation => ({
+    allowed: config.failOpen === true,
+    reason: `Mastyf proxy unavailable: ${reason}`,
+    unavailable: true,
+  });
 
   try {
     const res = await fetch(`${config.proxyUrl.replace(/\/$/, '')}/api/policy/test`, {
@@ -53,23 +80,44 @@ async function evaluateWithProxy(
         tool: toolName,
         server: config.identityContext?.clientId || 'openai-agent',
         args,
-        blockingMode: config.mode,
+        blockingMode: mode,
       }),
       signal: AbortSignal.timeout(config.timeoutMs || 10_000),
     });
 
-    if (!res.ok) {
-      return { allowed: config.mode !== 'block', reason: `Proxy HTTP ${res.status}` };
-    }
+    if (!res.ok) return unavailable(`HTTP ${res.status}`);
 
-    const data = await res.json();
+    const data = (await res.json()) as { action?: unknown; reason?: unknown };
+    if (data.action !== 'pass' && data.action !== 'flag' && data.action !== 'block') {
+      return unavailable('unrecognised response');
+    }
     return {
-      allowed: data.action === 'pass' || (data.action === 'flag' && config.mode !== 'block'),
-      reason: data.reason || '',
+      // A flag is a deny in block mode and a warning otherwise.
+      allowed: data.action === 'pass' || (data.action === 'flag' && mode !== 'block'),
+      reason: typeof data.reason === 'string' ? data.reason : '',
     };
   } catch (err: any) {
-    return { allowed: config.mode !== 'block', reason: err.message };
+    return unavailable(err?.message || String(err));
   }
+}
+
+/** One decision for both entry points: what the policy says, adjusted for the mode. */
+async function decide(
+  toolName: string,
+  args: Record<string, unknown>,
+  config: MastyfGuardConfig,
+): Promise<{ allowed: boolean; reason?: string }> {
+  const mode = resolveMode(config);
+  if (mode === 'audit') return { allowed: true };
+
+  const evaluation = await evaluateWithProxy(toolName, args, config);
+  if (evaluation.allowed) return { allowed: true };
+
+  if (mode === 'warn') {
+    console.warn(`[Mastyf] ${toolName}: ${evaluation.reason}`);
+    return { allowed: true };
+  }
+  return { allowed: false, reason: evaluation.reason || 'Blocked by Mastyf policy' };
 }
 
 export function createMastyfGuardMiddleware(config: MastyfGuardConfig) {
@@ -82,20 +130,7 @@ export function createMastyfGuardMiddleware(config: MastyfGuardConfig) {
       if (blockedSet.has(input.toolName)) {
         return { allowed: false, reason: `Tool "${input.toolName}" is blocked by Mastyf policy` };
       }
-
-      if (config.mode === 'audit') return { allowed: true };
-
-      const evaluation = await evaluateWithProxy(input.toolName, input.args, config);
-
-      if (!evaluation.allowed && config.mode === 'block') {
-        return { allowed: false, reason: evaluation.reason };
-      }
-
-      if (!evaluation.allowed && config.mode === 'warn') {
-        console.warn(`[Mastyf] ${input.toolName}: ${evaluation.reason}`);
-      }
-
-      return { allowed: true };
+      return decide(input.toolName, input.args, config);
     },
   };
 }
@@ -104,14 +139,18 @@ export function wrapToolsWithMastyfGuard(
   tools: Array<{ name: string; execute: Function }>,
   config: MastyfGuardConfig,
 ): Array<{ name: string; execute: Function }> {
+  const blockedSet = new Set(config.blockedTools || []);
+
   return tools.map(tool => ({
     ...tool,
     name: tool.name,
     execute: async (args: Record<string, unknown>, ctx?: any) => {
-      const evaluation = await evaluateWithProxy(tool.name, args, config);
+      const decision = blockedSet.has(tool.name)
+        ? { allowed: false, reason: `Tool "${tool.name}" is blocked by Mastyf policy` }
+        : await decide(tool.name, args, config);
 
-      if (!evaluation.allowed) {
-        const err = new Error(`Mastyf blocked "${tool.name}": ${evaluation.reason}`);
+      if (!decision.allowed) {
+        const err = new Error(`Mastyf blocked "${tool.name}": ${decision.reason}`);
         (err as any).mastyfBlocked = true;
         throw err;
       }
