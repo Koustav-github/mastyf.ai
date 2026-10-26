@@ -4,21 +4,21 @@
  * Secures OpenAI function/tool calls by routing them through the Mastyf AI
  * policy proxy before execution. Supports per-user identity context.
  *
- * Usage:
+ * Usage: wrap the tool definitions, then build the tools from them (the SDK runs a built
+ * tool through its own `invoke`, so wrapping a built tool's `execute` has no effect):
  * ```ts
- * import { createMastyfGuardMiddleware } from '@mastyf_ai/openai-agents-middleware';
+ * import { Agent, tool } from '@openai/agents';
+ * import { wrapToolsWithMastyfGuard } from '@mastyf_ai/openai-agents-middleware';
  *
- * const guard = createMastyfGuardMiddleware({
+ * const definitions = wrapToolsWithMastyfGuard([readFileDefinition], {
  *   proxyUrl: 'http://localhost:4000',
  *   apiKey: process.env.MASTYF_AI_API_KEY,
  * });
- *
- * const agent = new Agent({
- *   name: 'assistant',
- *   tools: [searchTool, fileReadTool],
- *   middleware: [guard],
- * });
+ * const agent = new Agent({ name: 'assistant', tools: definitions.map((d) => tool(d)) });
  * ```
+ *
+ * `createMastyfGuardMiddleware` returns a `beforeToolCall` check to call yourself; the SDK
+ * has no `middleware` option, so `new Agent({ middleware: [guard] })` does nothing.
  *
  * Fails closed: in the default `block` mode a tool call runs only when the proxy answers
  * `pass`. If the proxy is down, errors, times out or answers with something unexpected,
