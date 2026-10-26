@@ -13,6 +13,9 @@ inputs:
   fail_on_bypass:
     description: Fail the action if any critical payload bypasses detection
     default: 'true'
+  control_tool:
+    description: A harmless tool on the target that must run, proving the gateway isn't blocking everything (optional)
+    default: ''
 
 outputs:
   total_tests:
@@ -52,7 +55,8 @@ runs:
           --target "${{ inputs.target_url }}" \
           --min-block-rate "${{ inputs.min_block_rate }}" \
           --timeout "${{ inputs.timeout_seconds }}" \
-          --fail-on-bypass "${{ inputs.fail_on_bypass }}"
+          --fail-on-bypass "${{ inputs.fail_on_bypass }}" \
+          --control-tool "${{ inputs.control_tool }}"
 
 branding:
   icon: shield
