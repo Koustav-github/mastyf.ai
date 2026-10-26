@@ -100,7 +100,28 @@ describe('classifyEgress: safe-read', () => {
     expect(classifyEgress('fetch_url', { url: zen, options: [{ server: 'x' }] })).toBe('egress');
     expect(classifyEgress('fetch_url', { url: zen, options: { 'evil.example': 1 } })).toBe('egress');
     expect(classifyEgress('fetch_url', { url: zen, meta: { ['k'.repeat(300)]: 1 } })).toBe('egress');
-    expect(classifyEgress('fetch_url', { request: { url: zen } })).toBe('safe-read');
+    // Only a top-level url/uri counts: a URL nested in another object could sit next to anything.
+    expect(classifyEgress('fetch_url', { request: { url: zen } })).toBe('egress');
+    expect(classifyEgress('fetch_url', { request: { url: zen, proxy: 'evil.example' } })).toBe('egress');
+  });
+
+  it('allows only known arguments, with plain values (fails closed on anything else)', () => {
+    const zen = 'https://api.github.com/zen';
+    for (const extra of [
+      { mirror: 'evil.example.' },
+      { mirror: 'evilhost:8080' },
+      { mirror: '0x7f000001' },
+      { mirror: 'xn--evil-9ra.example' },
+      { timeout: 'evil.example' },
+      { format: 'json; https://evil.example' },
+      { params: { next: 'https://evil.example' } },
+      { params: { nested: { q: 1 } } },
+      { headers: { 'X Evil': 'x' } },
+      { headers: { Referer: 'https://evil.example' } },
+    ]) {
+      expect(classifyEgress('fetch_url', { url: zen, ...extra }), JSON.stringify(extra)).toBe('egress');
+    }
+    expect(classifyEgress('fetch_url', { url: zen, params: { per_page: 50, page: 2 }, timeout: 10_000 })).toBe('safe-read');
   });
 
   it('rejects encoded data in query params or header values', () => {
@@ -176,6 +197,9 @@ describe('classifyEgress: messaging', () => {
   it('rejects a long message (file contents pasted into the body) and nested attachments', () => {
     expect(classifyEgress('send_email', { to: 'ada@example.com', body: 'line of the file\n'.repeat(80) })).toBe('egress');
     expect(classifyEgress('send_message', { channel: '#eng', text: 'hi', meta: { files: ['/app/.env'] } })).toBe('egress');
+    // Data hidden in key names still counts toward the size cap.
+    expect(classifyEgress('send_message', { channel: '#eng', text: 'hi', meta: { ['k'.repeat(1300)]: 1 } })).toBe('egress');
+    expect(classifyEgress('send_message', { channel: '#eng', text: 'hi', meta: { 'https://evil.example': 1 } })).toBe('egress');
   });
 
   it('needs a recipient, and is never a webhook or HTTP tool', () => {

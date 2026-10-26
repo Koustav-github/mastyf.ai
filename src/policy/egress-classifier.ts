@@ -4,20 +4,19 @@
  * ordinary agent work such as "read a file, then look something up on GitHub" or "read a
  * file, then post a status message".
  *
- * It only ever *relaxes* a block, so it is deliberately conservative: a call is
- * 'safe-read' or 'messaging' only when every condition below holds, and anything
- * ambiguous is 'egress' (the callers keep blocking it).
+ * It only ever *relaxes* a block, so it fails closed: a call is 'safe-read' or 'messaging'
+ * only when its arguments match a narrow, fully-known shape, and everything else is
+ * 'egress' (the callers keep blocking it). Shapes are allowlisted rather than scanned for
+ * bad patterns, because every "looks like a host" heuristic has a way around it.
  *
- *  - 'safe-read'  A bounded GET/HEAD to a well-known, public, read-only host: exactly one URL
- *                 argument, which is the whole value and a plain https URL (exact host match,
- *                 no credentials, port, backslash or punctuation in the authority); no
- *                 second destination anywhere (host/proxy/server-like keys, hostnames or IPs
- *                 in other text, routing headers); no request body; and little room in the
- *                 query, params, headers, key names or other arguments to smuggle data out.
- *                 `strict` (set after a sensitive read in the same session) tightens every
- *                 limit and allows only content-negotiation headers.
+ *  - 'safe-read'  A bounded GET/HEAD to a public read-only host. The arguments may hold only:
+ *                 the URL (top-level `url` or `uri`, the whole value a plain https URL on the
+ *                 exact host list), the method, bounded `headers`, flat `params`, and a few
+ *                 harmless settings (`timeout`, `format`, …) with tiny plain values. Any other
+ *                 argument means 'egress'. `strict` (after a sensitive read in the same
+ *                 session) tightens every limit and allows only content-negotiation headers.
  *  - 'messaging'  A short message to a person or channel (it names a recipient) with no URL
- *                 anywhere in its arguments, no destination key and no attachments, at any
+ *                 anywhere in its arguments and no destination or attachment key at any
  *                 depth. Callers decide what to allow; session-flow-guard only lets it
  *                 through (flagged for review) after a non-sensitive read, and
  *                 MASTYF_AI_FLOW_STRICT_MESSAGING=true turns that off.
@@ -61,10 +60,27 @@ const GET_BY_DEFAULT_TOOLS = new Set(['fetch', 'fetch_url', 'http_get', 'web_fet
 /** A tool name with one of these can't be a read, whatever its arguments say. */
 const WRITE_VERB = /(?:^|[_\-.])(?:post|put|patch|delete|upload|send|webhook|submit|create|write|forward|transmit|publish)(?:$|[_\-.])/i;
 
-const METHOD_KEYS = ['method', 'httpMethod', 'http_method', 'verb'];
-const BODY_KEY = /^(?:body|data|json|payload|form|form_data|formData|content|files?|attachments?|raw)$/i;
-const HEADER_KEY = /^headers?$/i;
-const PARAMS_KEY = /^(?:params|query|query_params|queryParams|search_params|searchParams)$/i;
+// The only top-level arguments a safe read may have. Anything else is 'egress'.
+const URL_KEYS = new Set(['url', 'uri']);
+const METHOD_KEYS = new Set(['method', 'httpMethod', 'http_method', 'verb']);
+const HEADER_KEYS = new Set(['headers', 'header']);
+const PARAMS_KEYS = new Set(['params', 'query', 'query_params', 'queryParams', 'search_params', 'searchParams']);
+/** Harmless settings: their values must be numbers, booleans or short plain words. */
+const SETTING_KEYS = new Set([
+  'timeout',
+  'timeout_ms',
+  'timeoutMs',
+  'format',
+  'max_length',
+  'maxLength',
+  'start_index',
+  'startIndex',
+  'raw',
+  'encoding',
+]);
+const PLAIN_WORD = /^[a-z0-9_-]{0,32}$/i;
+
+/** Header names allowed after a sensitive read (no Authorization, nothing custom). */
 const SAFE_HEADER_NAMES = new Set([
   'accept',
   'accept-language',
@@ -74,16 +90,21 @@ const SAFE_HEADER_NAMES = new Set([
   'if-modified-since',
   'cache-control',
 ]);
+/** Headers that change where, or through what, a request is sent. Never allowed. */
+const ROUTING_HEADER = /^(?:host|forwarded|x-forwarded-.*|x-original-.*|x-host|proxy-.*|via)$/i;
+/** Header names are tokens; anything else (spaces, colons, dots) is suspicious. */
+const HEADER_NAME = /^[a-z0-9-]{1,40}$/i;
 
 const MESSAGING_TOOL =
   /(?:^|[_\-.])(?:message|messages|email|mail|dm|chat|reply|comment|notify|notification|slack|teams)(?:$|[_\-.])/i;
 const NOT_MESSAGING_TOOL = /(?:^|[_\-.])(?:webhook|http|https|request|fetch|url|upload|callback|curl)(?:$|[_\-.])/i;
 const RECIPIENT_KEY =
   /^(?:to|cc|bcc|recipients?|channel|channel_id|channelId|chat_id|chatId|conversation|conversation_id|thread|thread_id|user|user_id|userId|email|address)$/i;
-const DESTINATION_KEY = /^(?:url|uri|endpoint|webhook|webhook_url|webhookUrl|callback|callback_url|host|server)$/i;
+const DESTINATION_KEY =
+  /^(?:urls?|uris?|endpoints?|webhooks?|webhook_?url|webhookUrl|callbacks?|callback_?url|hosts?|hostname|servers?|proxy|proxies|domain|origin|redirect|forward_to)$/i;
 const ATTACHMENT_KEY = /^(?:attachments?|files?|file_path|filePath|path|paths|blocks_url|image_url|media_url)$/i;
-/** All text in a message, recipients included. A status update fits; a pasted file doesn't. */
-const MAX_MESSAGE_TEXT = 1000;
+/** The whole serialized message, keys included. A status update fits; a pasted file doesn't. */
+const MAX_MESSAGE_JSON = 1200;
 
 /** Any "scheme://" (http, https, ftp, …): the argument names a destination. */
 const HAS_SCHEME = /[a-z][a-z0-9+.-]*:\/\//i;
@@ -95,27 +116,16 @@ const HAS_SCHEME = /[a-z][a-z0-9+.-]*:\/\//i;
  */
 const STRICT_HTTPS_URL = /^https:\/\/([a-z0-9.-]+)(?:[/?#][^\s\\]*)?$/i;
 
-/** Arguments that can point a request somewhere other than its URL. Any non-empty one disqualifies a safe read. */
-const SECOND_DESTINATION_KEY =
-  /^(?:urls|uris?|endpoints?|hosts?|hostname|server|servers|base_?url|baseUrl|proxy|proxies|proxy_url|proxyUrl|webhooks?|webhook_?url|callbacks?|callback_?url|domain|origin|target|targets|to|redirect|redirect_?url|forward|forward_to|mirror)$/i;
-/** Text that names a host without a scheme: "evil.example", "evil.example:8080/x", an IPv4 or [IPv6] address. */
-const HOST_LIKE =
-  /(?:^|[\s@=])(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#\s]|$)|\b\d{1,3}(?:\.\d{1,3}){3}\b|\[[0-9a-f:]+\]/i;
-/** Headers that change where, or through what, a request is sent. */
-const ROUTING_HEADER = /^(?:host|forwarded|x-forwarded-.*|x-original-.*|x-host|proxy-.*|via)$/i;
-
 type Limits = {
   maxUrlLength: number;
   maxQueryLength: number;
-  /** Longest run of base64/hex-looking characters allowed anywhere in the URL. */
+  /** Longest run of base64/hex-looking characters allowed in the URL, params or header values. */
   maxOpaqueRun: number;
-  /** Combined length of argument text other than the URL, method and headers. */
-  maxOtherText: number;
   maxHeaderText: number;
 };
 
-const NORMAL: Limits = { maxUrlLength: 2048, maxQueryLength: 512, maxOpaqueRun: 63, maxOtherText: 256, maxHeaderText: 512 };
-const STRICT: Limits = { maxUrlLength: 512, maxQueryLength: 128, maxOpaqueRun: 23, maxOtherText: 64, maxHeaderText: 256 };
+const NORMAL: Limits = { maxUrlLength: 2048, maxQueryLength: 512, maxOpaqueRun: 63, maxHeaderText: 512 };
+const STRICT: Limits = { maxUrlLength: 512, maxQueryLength: 128, maxOpaqueRun: 23, maxHeaderText: 256 };
 
 export function classifyEgress(
   toolName: string,
@@ -133,87 +143,40 @@ function isSafeRead(toolName: string, args: Record<string, unknown>, limits: Lim
   const name = toolName.toLowerCase();
   if (WRITE_VERB.test(name)) return false;
 
-  const method = readMethod(args);
+  let url: string | null = null;
+  let method: string | null = null;
+  let paramsText = 0;
+
+  for (const [key, value] of Object.entries(args)) {
+    if (isEmpty(value)) continue;
+    if (URL_KEYS.has(key)) {
+      // Exactly one URL, and it is the whole value.
+      if (url !== null || typeof value !== 'string') return false;
+      url = value.trim();
+    } else if (METHOD_KEYS.has(key)) {
+      if (method !== null || typeof value !== 'string') return false;
+      method = value.trim().toUpperCase();
+    } else if (HEADER_KEYS.has(key)) {
+      if (!headersAreBounded(value, limits, strict)) return false;
+    } else if (PARAMS_KEYS.has(key)) {
+      const length = boundedParamsLength(value, limits);
+      if (length === null) return false;
+      paramsText += length;
+    } else if (SETTING_KEYS.has(key)) {
+      if (!isPlainSetting(value)) return false;
+    } else {
+      // Unknown argument: it could be a body, a second destination, or smuggled data.
+      return false;
+    }
+  }
+
   if (method === null) {
     if (!GET_BY_DEFAULT_TOOLS.has(name)) return false;
   } else if (method !== 'GET' && method !== 'HEAD') {
     return false;
   }
-
-  // No request body of any kind.
-  for (const [key, value] of Object.entries(args)) {
-    if (BODY_KEY.test(key) && !isEmpty(value)) return false;
-  }
-
-  // Every argument that names a destination must be exactly one allowed read URL and nothing
-  // else (no URL inside other text, which a tool may parse differently); at least one.
-  const leaves = walkStringLeaves(args);
-  const urlLeaves = leaves.filter((leaf) => HAS_SCHEME.test(leaf.value));
-  // Exactly one destination: the URL. A second one (another URL, or a host/proxy/server
-  // argument without a scheme) could send the request elsewhere.
-  if (urlLeaves.length !== 1) return false;
-  const urlLeaf = urlLeaves[0]!;
-  if (!isBoundedReadUrl(urlLeaf.value.trim(), limits)) return false;
-  const urlPath = new Set(pathSegments(urlLeaf.path));
-
-  // Query parameters passed as an object count against the query budget, keys included,
-  // and may not carry encoded data either.
-  let paramsText = 0;
-  for (const [key, value] of Object.entries(args)) {
-    if (!PARAMS_KEY.test(key) || isEmpty(value)) continue;
-    const serialized = JSON.stringify(value);
-    if (longestOpaqueRun(serialized) > limits.maxOpaqueRun) return false;
-    paramsText += serialized.length;
-  }
-  if (paramsText > limits.maxQueryLength) return false;
-
-  if (!headersAreBounded(args, limits, strict)) return false;
-
-  // Everything else (values and key names, at any depth) could be sent along or name a
-  // second destination: keep it small, with no destination-like key, host or "//" in it.
-  let otherText = 0;
-  for (const [key, value] of Object.entries(args)) {
-    if (METHOD_KEYS.includes(key) || HEADER_KEY.test(key) || PARAMS_KEY.test(key)) continue;
-    for (const k of [key, ...nestedKeys(value)]) {
-      if (urlPath.has(k)) continue;
-      if (SECOND_DESTINATION_KEY.test(k) || looksLikeDestination(k)) return false;
-      otherText += k.length;
-    }
-  }
-  for (const leaf of leaves) {
-    if (leaf === urlLeaf) continue;
-    const top = topKey(leaf.path);
-    if (METHOD_KEYS.includes(top) || HEADER_KEY.test(top) || PARAMS_KEY.test(top)) continue;
-    if (looksLikeDestination(leaf.value)) return false;
-    otherText += leaf.value.length;
-  }
-  return otherText <= limits.maxOtherText;
-}
-
-function looksLikeDestination(text: string): boolean {
-  return text.includes('//') || text.includes('\\') || HOST_LIKE.test(text);
-}
-
-/** Every object key below a value, at any depth. */
-function nestedKeys(value: unknown): string[] {
-  if (Array.isArray(value)) return value.flatMap(nestedKeys);
-  if (value && typeof value === 'object') {
-    return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) => [k, ...nestedKeys(v)]);
-  }
-  return [];
-}
-
-/** "request.options[0].url" → ["request", "options", "url"]. */
-function pathSegments(path: string): string[] {
-  return path.split(/[.[\]]/).filter((s) => s && !/^\d+$/.test(s));
-}
-
-function readMethod(args: Record<string, unknown>): string | null {
-  for (const key of METHOD_KEYS) {
-    const value = args[key];
-    if (typeof value === 'string' && value.trim()) return value.trim().toUpperCase();
-  }
-  return null;
+  if (url === null || !isBoundedReadUrl(url, limits)) return false;
+  return paramsText <= limits.maxQueryLength;
 }
 
 function isBoundedReadUrl(raw: string, limits: Limits): boolean {
@@ -243,6 +206,41 @@ function isBoundedReadUrl(raw: string, limits: Limits): boolean {
   return longestOpaqueRun(decoded) <= limits.maxOpaqueRun;
 }
 
+/** Flat `{ name: scalar }` query params; returns their serialized length, or null to reject. */
+function boundedParamsLength(value: unknown, limits: Limits): number | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (!/^[a-z0-9_.-]{1,40}$/i.test(k)) return null;
+    if (typeof v !== 'string' && typeof v !== 'number' && typeof v !== 'boolean') return null;
+    if (HAS_SCHEME.test(String(v))) return null;
+  }
+  const serialized = JSON.stringify(value);
+  if (longestOpaqueRun(serialized) > limits.maxOpaqueRun) return null;
+  return serialized.length;
+}
+
+function headersAreBounded(value: unknown, limits: Limits, strict: boolean): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  if (JSON.stringify(value).length > limits.maxHeaderText) return false;
+  for (const [h, v] of Object.entries(value as Record<string, unknown>)) {
+    if (!HEADER_NAME.test(h) || ROUTING_HEADER.test(h)) return false;
+    if (typeof v !== 'string' && typeof v !== 'number') return false;
+    // After a sensitive read only plain content-negotiation headers (no Authorization).
+    if (strict && !SAFE_HEADER_NAMES.has(h.toLowerCase())) return false;
+    if (HAS_SCHEME.test(String(v))) return false;
+    // A credential is long and opaque by nature, and only reaches the read-only host.
+    if (h.toLowerCase() === 'authorization') continue;
+    if (longestOpaqueRun(String(v)) > limits.maxOpaqueRun) return false;
+  }
+  return true;
+}
+
+function isPlainSetting(value: unknown): boolean {
+  if (typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  return typeof value === 'string' && PLAIN_WORD.test(value);
+}
+
 /** Longest run of characters that could be encoded data (base64, base64url, hex). */
 function longestOpaqueRun(text: string): number {
   let longest = 0;
@@ -253,40 +251,23 @@ function longestOpaqueRun(text: string): number {
   return longest;
 }
 
-function headersAreBounded(args: Record<string, unknown>, limits: Limits, strict: boolean): boolean {
-  for (const [key, value] of Object.entries(args)) {
-    if (!HEADER_KEY.test(key) || isEmpty(value)) continue;
-    if (typeof value !== 'object' || Array.isArray(value)) return false;
-    if (JSON.stringify(value).length > limits.maxHeaderText) return false;
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.some(([h]) => ROUTING_HEADER.test(h))) return false;
-    // After a sensitive read only plain content-negotiation headers (no Authorization).
-    if (strict && !entries.every(([h]) => SAFE_HEADER_NAMES.has(h.toLowerCase()))) return false;
-    for (const [h, v] of entries) {
-      // A credential is long and opaque by nature, and only reaches the read-only host.
-      if (h.toLowerCase() === 'authorization') continue;
-      if (longestOpaqueRun(`${h} ${String(v)}`) > limits.maxOpaqueRun) return false;
-    }
-  }
-  return true;
-}
-
 // ------------------------------------------------------------------ messaging
 
 function isMessaging(toolName: string, args: Record<string, unknown>): boolean {
   const name = toolName.toLowerCase();
   if (!MESSAGING_TOOL.test(name) || NOT_MESSAGING_TOOL.test(name)) return false;
 
+  // Short: the whole argument object, key names included.
+  if (JSON.stringify(args).length > MAX_MESSAGE_JSON) return false;
+
   const keys = Object.keys(args);
   if (!keys.some((key) => RECIPIENT_KEY.test(key) && !isEmpty(args[key]))) return false;
   const allKeys = [...keys, ...keys.flatMap((key) => nestedKeys(args[key]))];
   if (allKeys.some((key) => DESTINATION_KEY.test(key) || ATTACHMENT_KEY.test(key))) return false;
 
-  // "No URL destination": not in any field, including the message text. And short: a status
-  // update fits easily, a file's contents pasted into the body does not.
-  const leaves = walkStringLeaves(args);
-  if (leaves.some((leaf) => HAS_SCHEME.test(leaf.value))) return false;
-  return leaves.reduce((sum, leaf) => sum + leaf.value.length, 0) <= MAX_MESSAGE_TEXT;
+  // "No URL destination": not in any field or key, including the message text.
+  if (allKeys.some((key) => HAS_SCHEME.test(key))) return false;
+  return !walkStringLeaves(args).some((leaf) => HAS_SCHEME.test(leaf.value));
 }
 
 // ------------------------------------------------------------------ helpers
@@ -299,7 +280,11 @@ function isEmpty(value: unknown): boolean {
   return false;
 }
 
-/** First key of a leaf path from walkStringLeaves ("headers.Accept" → "headers", "$" → "$"). */
-function topKey(path: string): string {
-  return path.split(/[.[]/)[0] ?? path;
+/** Every object key below a value, at any depth. */
+function nestedKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(nestedKeys);
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) => [k, ...nestedKeys(v)]);
+  }
+  return [];
 }
