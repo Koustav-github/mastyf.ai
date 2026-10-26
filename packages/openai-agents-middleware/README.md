@@ -12,30 +12,36 @@ npm install @mastyf_ai/openai-agents-middleware
 
 ## Usage
 
-Start a Mastyf proxy (it listens on `http://localhost:4000` by default), then add the guard:
+Start a Mastyf proxy (it listens on `http://localhost:4000` by default), then wrap your tool
+**definitions** and build the tools from them. A denied call throws an error with
+`mastyfBlocked: true` inside the tool instead of running it.
 
 ```ts
-import { createMastyfGuardMiddleware } from '@mastyf_ai/openai-agents-middleware';
-
-const guard = createMastyfGuardMiddleware({
-  proxyUrl: 'http://localhost:4000',
-  apiKey: process.env.MASTYF_AI_API_KEY,
-});
-
-const agent = new Agent({
-  name: 'assistant',
-  tools: [searchTool, fileReadTool],
-  middleware: [guard],
-});
-```
-
-Or wrap the tools themselves; a denied call throws an error with `mastyfBlocked: true`:
-
-```ts
+import { Agent, tool } from '@openai/agents';
+import { z } from 'zod';
 import { wrapToolsWithMastyfGuard } from '@mastyf_ai/openai-agents-middleware';
 
-const tools = wrapToolsWithMastyfGuard([searchTool, fileReadTool], { proxyUrl: 'http://localhost:4000' });
+const definitions = wrapToolsWithMastyfGuard(
+  [
+    {
+      name: 'read_file',
+      description: 'Read a file from the project',
+      parameters: z.object({ path: z.string() }),
+      execute: async ({ path }) => readFile(path, 'utf8'),
+    },
+  ],
+  { proxyUrl: 'http://localhost:4000', apiKey: process.env.MASTYF_AI_API_KEY },
+);
+
+const agent = new Agent({ name: 'assistant', tools: definitions.map((d) => tool(d)) });
 ```
+
+Wrap the definitions, not the tools `tool()` returns: the SDK runs a tool through its own
+`invoke`, so replacing `execute` on a built tool has no effect.
+
+`createMastyfGuardMiddleware` returns a `beforeToolCall(...)` check you can call yourself.
+The OpenAI Agents SDK has no `middleware` option, so passing it as
+`new Agent({ middleware: [guard] })` does nothing.
 
 ## Modes and failure behaviour
 

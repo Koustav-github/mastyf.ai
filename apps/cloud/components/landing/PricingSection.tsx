@@ -64,11 +64,11 @@ export function PricingSection({ signedIn = false }: { signedIn?: boolean }) {
       </div>
 
       <div className="pricing-foot">
-        <Link href="/docs#plans" className="link-icon">
+        <Link href="/docs/plans" className="link-icon">
           Compare every feature
           <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
         </Link>
-        <Link href="/docs#faq" className="link-icon">
+        <Link href="/docs/help#faq" className="link-icon">
           Questions and answers
           <ArrowRight size={13} strokeWidth={1.75} aria-hidden="true" />
         </Link>
