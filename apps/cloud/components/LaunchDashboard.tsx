@@ -73,8 +73,8 @@ export function LaunchDashboard() {
       </div>
       <div className="panel__body">
         <p className="panel__text">
-          Signs you straight into the operations dashboard on your proxy host. That host needs the variables above, with{' '}
-          <code>MASTYF_AI_CLOUD_JWT_SECRET</code> matching this cloud&rsquo;s <code>AUTH_SECRET</code>.
+          Signs you straight into the operations dashboard on your proxy host. That host needs the variables above:
+          its own <code>DASHBOARD_JWT_SECRET</code> and this workspace&rsquo;s <code>MASTYF_AI_CLOUD_API_KEY</code>.
         </p>
         <div className="btn-row" style={{ alignItems: 'flex-end' }}>
           <label className="field" style={{ flex: '1 1 280px' }}>

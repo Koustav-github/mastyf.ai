@@ -41,6 +41,7 @@ import { WsBroadcaster } from '../dashboard/ws-broadcaster.js';
 import { setWsBroadcaster } from './dashboard-events.js';
 import { wireDashboardWsProviders } from './dashboard-ws-wire.js';
 import {
+  cloudApiKey,
   getLicenseClient,
   isLicenseEnforcementEnabled,
   loadLicenseClientConfig,
@@ -51,7 +52,7 @@ import {
 } from '../license/feature-tiers.js';
 import { isCiTokenCached } from '../license/ci-token.js';
 import { DEFAULT_CLOUD_CONSOLE_URL } from '../constants/cloud-url.js';
-import { mapCloudRoles, verifyCloudSessionToken } from '../license/cloud-session.js';
+import { cloudSessionFromClaims, mapCloudRoles, verifyCloudSessionToken } from '../license/cloud-session.js';
 import {
   getAllActiveServerNames,
   loadAllCallRecords,
@@ -955,7 +956,7 @@ export async function startDashboardServer(
             req,
             res,
             503,
-            `Set DASHBOARD_JWT_SECRET or MASTYF_AI_CLOUD_JWT_SECRET on this Mastyf AI host (same value as cloud AUTH_SECRET). The cloud console at ${DEFAULT_CLOUD_CONSOLE_URL} does not need this — only self-hosted SSO.`,
+            `Set DASHBOARD_JWT_SECRET on this Mastyf AI host to a random value of its own (openssl rand -base64 32); it signs this dashboard's sessions. Never use the cloud's AUTH_SECRET. The cloud console at ${DEFAULT_CLOUD_CONSOLE_URL} does not need this — only self-hosted SSO.`,
           );
           return;
         }
@@ -970,26 +971,42 @@ export async function startDashboardServer(
           );
           return;
         }
-        const exchanged = await licenseClient.exchangeCloudToken(exchangeToken);
-        if (!exchanged?.sessionToken) {
-          writeCloudExchangeError(req, res, 401, 'Invalid or expired exchange token');
+        if (!cloudApiKey()) {
+          writeCloudExchangeError(
+            req,
+            res,
+            503,
+            `Set MASTYF_AI_CLOUD_API_KEY on this host to your workspace's API key (Settings → API key at ${DEFAULT_CLOUD_CONSOLE_URL}).`,
+          );
           return;
         }
 
-        const cloudPayload = verifyCloudSessionToken(exchanged.sessionToken);
+        const exchanged = await licenseClient.exchangeCloudToken(exchangeToken);
+        if (!exchanged) {
+          writeCloudExchangeError(req, res, 401, 'Invalid or expired exchange token, or an API key from another workspace');
+          return;
+        }
+
+        // Current control planes return the claims over this authenticated call; only older
+        // ones send a signed token, which needs their secret (MASTYF_AI_CLOUD_JWT_SECRET).
+        const cloudPayload = exchanged.session
+          ? cloudSessionFromClaims(exchanged.session)
+          : exchanged.sessionToken
+            ? verifyCloudSessionToken(exchanged.sessionToken)
+            : null;
         if (!cloudPayload) {
           writeCloudExchangeError(
             req,
             res,
             401,
-            'Invalid cloud session token — MASTYF_AI_CLOUD_JWT_SECRET must match cloud AUTH_SECRET',
+            'The cloud session was expired, malformed, or for a different workspace than MASTYF_AI_TENANT_ID',
           );
           return;
         }
 
         try {
           const token = auth.createCloudSession(
-            exchanged.tenantSlug ?? cloudPayload.tenantSlug,
+            cloudPayload.tenantSlug,
             cloudPayload.identity,
             mapCloudRoles(cloudPayload.roles),
           );
