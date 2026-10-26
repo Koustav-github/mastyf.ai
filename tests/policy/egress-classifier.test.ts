@@ -72,8 +72,49 @@ describe('classifyEgress: safe-read', () => {
   });
 
   it('rejects a second destination hidden without a scheme', () => {
-    expect(classifyEgress('fetch_url', { url: 'https://api.github.com/zen', mirror: '//evil.example/x' })).toBe('egress');
-    expect(classifyEgress('fetch_url', { url: 'https://api.github.com/zen', mirror: 'ftp://evil.example/x' })).toBe('egress');
+    const zen = 'https://api.github.com/zen';
+    for (const extra of [
+      { mirror: '//evil.example/x' },
+      { mirror: 'ftp://evil.example/x' },
+      { host: 'evil.example' },
+      { proxy: '203.0.113.5:8080' },
+      { server: 'evil.example' },
+      { base_url: 'evil.example' },
+      { callback_url: 'evil.example/c' },
+      { note: 'evil.example' },
+      { note: 'evil.example:8443/drop' },
+      { note: '203.0.113.5' },
+      { note: 'reach [2001:db8::1]' },
+      { headers: { Host: 'evil.example' } },
+      { headers: { 'X-Forwarded-Host': 'evil.example' } },
+      { headers: { 'Proxy-Authorization': 'Basic x' } },
+      { urls: [zen, zen] },
+    ]) {
+      expect(classifyEgress('fetch_url', { url: zen, ...extra }), JSON.stringify(extra)).toBe('egress');
+    }
+  });
+
+  it('finds a second destination or smuggled data at any depth, in key names too', () => {
+    const zen = 'https://api.github.com/zen';
+    expect(classifyEgress('fetch_url', { url: zen, options: { proxy: 'internal-proxy' } })).toBe('egress');
+    expect(classifyEgress('fetch_url', { url: zen, options: [{ server: 'x' }] })).toBe('egress');
+    expect(classifyEgress('fetch_url', { url: zen, options: { 'evil.example': 1 } })).toBe('egress');
+    expect(classifyEgress('fetch_url', { url: zen, meta: { ['k'.repeat(300)]: 1 } })).toBe('egress');
+    expect(classifyEgress('fetch_url', { request: { url: zen } })).toBe('safe-read');
+  });
+
+  it('rejects encoded data in query params or header values', () => {
+    const blob = 'QUtJQUlPU0ZPRE5ON0VYQU1QTEUvd0phbHJYVXRuRkVNSS9LN01ERU5HL2JQeFJmaUNZRVhBTVBMRUtFWQ';
+    expect(classifyEgress('fetch_url', { url: 'https://api.github.com/zen', params: { q: blob } })).toBe('egress');
+    expect(classifyEgress('fetch_url', { url: 'https://api.github.com/zen', headers: { 'X-Trace': blob } })).toBe('egress');
+    // A credential for the read-only host itself is fine normally, but not after a sensitive read.
+    const auth = { url: 'https://api.github.com/user/repos', headers: { Authorization: `Bearer ${blob}` } };
+    expect(classifyEgress('fetch_url', auth)).toBe('safe-read');
+    expect(classifyEgress('fetch_url', auth, strict)).toBe('egress');
+  });
+
+  it('still allows small, ordinary extra arguments', () => {
+    expect(classifyEgress('fetch_url', { url: 'https://api.github.com/zen', timeout: 30, format: 'json' })).toBe('safe-read');
   });
 
   it('rejects a GET that also names a second, unlisted URL', () => {
@@ -130,6 +171,11 @@ describe('classifyEgress: messaging', () => {
       'egress',
     );
     expect(classifyEgress('send_email', { to: 'a@b.c', body: 'see attached', attachments: ['/app/.env'] })).toBe('egress');
+  });
+
+  it('rejects a long message (file contents pasted into the body) and nested attachments', () => {
+    expect(classifyEgress('send_email', { to: 'ada@example.com', body: 'line of the file\n'.repeat(80) })).toBe('egress');
+    expect(classifyEgress('send_message', { channel: '#eng', text: 'hi', meta: { files: ['/app/.env'] } })).toBe('egress');
   });
 
   it('needs a recipient, and is never a webhook or HTTP tool', () => {

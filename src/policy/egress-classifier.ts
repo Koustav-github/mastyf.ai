@@ -8,15 +8,19 @@
  * 'safe-read' or 'messaging' only when every condition below holds, and anything
  * ambiguous is 'egress' (the callers keep blocking it).
  *
- *  - 'safe-read'  A bounded GET/HEAD to a well-known, public, read-only host: HTTPS, exact
- *                 host match, no credentials or custom port in the URL, no request body,
- *                 and little room in the query string, headers or other arguments to smuggle
- *                 data out. `strict` (set after a sensitive read in the same session)
- *                 tightens every limit.
- *  - 'messaging'  A message to a person or channel (it names a recipient) with no URL
- *                 anywhere in its arguments and no attachments: nothing is sent to an
- *                 arbitrary destination. Callers decide what to allow; session-flow-guard
- *                 only lets it through after a non-sensitive read.
+ *  - 'safe-read'  A bounded GET/HEAD to a well-known, public, read-only host: exactly one URL
+ *                 argument, which is the whole value and a plain https URL (exact host match,
+ *                 no credentials, port, backslash or punctuation in the authority); no
+ *                 second destination anywhere (host/proxy/server-like keys, hostnames or IPs
+ *                 in other text, routing headers); no request body; and little room in the
+ *                 query, params, headers, key names or other arguments to smuggle data out.
+ *                 `strict` (set after a sensitive read in the same session) tightens every
+ *                 limit and allows only content-negotiation headers.
+ *  - 'messaging'  A short message to a person or channel (it names a recipient) with no URL
+ *                 anywhere in its arguments, no destination key and no attachments, at any
+ *                 depth. Callers decide what to allow; session-flow-guard only lets it
+ *                 through (flagged for review) after a non-sensitive read, and
+ *                 MASTYF_AI_FLOW_STRICT_MESSAGING=true turns that off.
  *  - 'egress'     Everything else.
  *
  * Note: this file was missing from commit 6d9905f6, which added its two callers. It was
@@ -69,7 +73,6 @@ const SAFE_HEADER_NAMES = new Set([
   'if-none-match',
   'if-modified-since',
   'cache-control',
-  'authorization',
 ]);
 
 const MESSAGING_TOOL =
@@ -79,6 +82,8 @@ const RECIPIENT_KEY =
   /^(?:to|cc|bcc|recipients?|channel|channel_id|channelId|chat_id|chatId|conversation|conversation_id|thread|thread_id|user|user_id|userId|email|address)$/i;
 const DESTINATION_KEY = /^(?:url|uri|endpoint|webhook|webhook_url|webhookUrl|callback|callback_url|host|server)$/i;
 const ATTACHMENT_KEY = /^(?:attachments?|files?|file_path|filePath|path|paths|blocks_url|image_url|media_url)$/i;
+/** All text in a message, recipients included. A status update fits; a pasted file doesn't. */
+const MAX_MESSAGE_TEXT = 1000;
 
 /** Any "scheme://" (http, https, ftp, …): the argument names a destination. */
 const HAS_SCHEME = /[a-z][a-z0-9+.-]*:\/\//i;
@@ -89,6 +94,15 @@ const HAS_SCHEME = /[a-z][a-z0-9+.-]*:\/\//i;
  * ("https://api.github.com,@evil.example/x" is evil.example to some of them).
  */
 const STRICT_HTTPS_URL = /^https:\/\/([a-z0-9.-]+)(?:[/?#][^\s\\]*)?$/i;
+
+/** Arguments that can point a request somewhere other than its URL. Any non-empty one disqualifies a safe read. */
+const SECOND_DESTINATION_KEY =
+  /^(?:urls|uris?|endpoints?|hosts?|hostname|server|servers|base_?url|baseUrl|proxy|proxies|proxy_url|proxyUrl|webhooks?|webhook_?url|callbacks?|callback_?url|domain|origin|target|targets|to|redirect|redirect_?url|forward|forward_to|mirror)$/i;
+/** Text that names a host without a scheme: "evil.example", "evil.example:8080/x", an IPv4 or [IPv6] address. */
+const HOST_LIKE =
+  /(?:^|[\s@=])(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#\s]|$)|\b\d{1,3}(?:\.\d{1,3}){3}\b|\[[0-9a-f:]+\]/i;
+/** Headers that change where, or through what, a request is sent. */
+const ROUTING_HEADER = /^(?:host|forwarded|x-forwarded-.*|x-original-.*|x-host|proxy-.*|via)$/i;
 
 type Limits = {
   maxUrlLength: number;
@@ -135,29 +149,63 @@ function isSafeRead(toolName: string, args: Record<string, unknown>, limits: Lim
   // else (no URL inside other text, which a tool may parse differently); at least one.
   const leaves = walkStringLeaves(args);
   const urlLeaves = leaves.filter((leaf) => HAS_SCHEME.test(leaf.value));
-  if (urlLeaves.length === 0) return false;
-  if (!urlLeaves.every((leaf) => isBoundedReadUrl(leaf.value.trim(), limits))) return false;
+  // Exactly one destination: the URL. A second one (another URL, or a host/proxy/server
+  // argument without a scheme) could send the request elsewhere.
+  if (urlLeaves.length !== 1) return false;
+  const urlLeaf = urlLeaves[0]!;
+  if (!isBoundedReadUrl(urlLeaf.value.trim(), limits)) return false;
+  const urlPath = new Set(pathSegments(urlLeaf.path));
 
-  // Query parameters passed as an object count against the query budget.
+  // Query parameters passed as an object count against the query budget, keys included,
+  // and may not carry encoded data either.
   let paramsText = 0;
   for (const [key, value] of Object.entries(args)) {
-    if (PARAMS_KEY.test(key) && !isEmpty(value)) paramsText += JSON.stringify(value).length;
+    if (!PARAMS_KEY.test(key) || isEmpty(value)) continue;
+    const serialized = JSON.stringify(value);
+    if (longestOpaqueRun(serialized) > limits.maxOpaqueRun) return false;
+    paramsText += serialized.length;
   }
   if (paramsText > limits.maxQueryLength) return false;
 
   if (!headersAreBounded(args, limits, strict)) return false;
 
-  // Whatever else is in the arguments could be sent along; keep it small, and no second
-  // destination hiding without a scheme ("//evil.example/x").
+  // Everything else (values and key names, at any depth) could be sent along or name a
+  // second destination: keep it small, with no destination-like key, host or "//" in it.
   let otherText = 0;
+  for (const [key, value] of Object.entries(args)) {
+    if (METHOD_KEYS.includes(key) || HEADER_KEY.test(key) || PARAMS_KEY.test(key)) continue;
+    for (const k of [key, ...nestedKeys(value)]) {
+      if (urlPath.has(k)) continue;
+      if (SECOND_DESTINATION_KEY.test(k) || looksLikeDestination(k)) return false;
+      otherText += k.length;
+    }
+  }
   for (const leaf of leaves) {
-    if (urlLeaves.includes(leaf)) continue;
+    if (leaf === urlLeaf) continue;
     const top = topKey(leaf.path);
     if (METHOD_KEYS.includes(top) || HEADER_KEY.test(top) || PARAMS_KEY.test(top)) continue;
-    if (leaf.value.includes('//') || leaf.value.includes('\\')) return false;
+    if (looksLikeDestination(leaf.value)) return false;
     otherText += leaf.value.length;
   }
   return otherText <= limits.maxOtherText;
+}
+
+function looksLikeDestination(text: string): boolean {
+  return text.includes('//') || text.includes('\\') || HOST_LIKE.test(text);
+}
+
+/** Every object key below a value, at any depth. */
+function nestedKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(nestedKeys);
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) => [k, ...nestedKeys(v)]);
+  }
+  return [];
+}
+
+/** "request.options[0].url" → ["request", "options", "url"]. */
+function pathSegments(path: string): string[] {
+  return path.split(/[.[\]]/).filter((s) => s && !/^\d+$/.test(s));
 }
 
 function readMethod(args: Record<string, unknown>): string | null {
@@ -210,7 +258,15 @@ function headersAreBounded(args: Record<string, unknown>, limits: Limits, strict
     if (!HEADER_KEY.test(key) || isEmpty(value)) continue;
     if (typeof value !== 'object' || Array.isArray(value)) return false;
     if (JSON.stringify(value).length > limits.maxHeaderText) return false;
-    if (strict && !Object.keys(value as object).every((h) => SAFE_HEADER_NAMES.has(h.toLowerCase()))) return false;
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.some(([h]) => ROUTING_HEADER.test(h))) return false;
+    // After a sensitive read only plain content-negotiation headers (no Authorization).
+    if (strict && !entries.every(([h]) => SAFE_HEADER_NAMES.has(h.toLowerCase()))) return false;
+    for (const [h, v] of entries) {
+      // A credential is long and opaque by nature, and only reaches the read-only host.
+      if (h.toLowerCase() === 'authorization') continue;
+      if (longestOpaqueRun(`${h} ${String(v)}`) > limits.maxOpaqueRun) return false;
+    }
   }
   return true;
 }
@@ -223,11 +279,14 @@ function isMessaging(toolName: string, args: Record<string, unknown>): boolean {
 
   const keys = Object.keys(args);
   if (!keys.some((key) => RECIPIENT_KEY.test(key) && !isEmpty(args[key]))) return false;
-  if (keys.some((key) => DESTINATION_KEY.test(key) && !isEmpty(args[key]))) return false;
-  if (keys.some((key) => ATTACHMENT_KEY.test(key) && !isEmpty(args[key]))) return false;
+  const allKeys = [...keys, ...keys.flatMap((key) => nestedKeys(args[key]))];
+  if (allKeys.some((key) => DESTINATION_KEY.test(key) || ATTACHMENT_KEY.test(key))) return false;
 
-  // "No URL destination": not in any field, including the message text.
-  return !walkStringLeaves(args).some((leaf) => HAS_SCHEME.test(leaf.value));
+  // "No URL destination": not in any field, including the message text. And short: a status
+  // update fits easily, a file's contents pasted into the body does not.
+  const leaves = walkStringLeaves(args);
+  if (leaves.some((leaf) => HAS_SCHEME.test(leaf.value))) return false;
+  return leaves.reduce((sum, leaf) => sum + leaf.value.length, 0) <= MAX_MESSAGE_TEXT;
 }
 
 // ------------------------------------------------------------------ helpers
