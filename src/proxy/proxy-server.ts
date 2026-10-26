@@ -656,6 +656,28 @@ export class McpProxyServer {
     try {
       const msg = JSON.parse(raw);
 
+      // Every check below inspects one message's method and id. A JSON-RPC batch (an array)
+      // has neither, so it used to be forwarded unchecked, tools/call entries and all.
+      // Refuse it: answer each request in it, forward nothing.
+      if (Array.isArray(msg)) {
+        Logger.warn(`[Proxy] JSON-RPC batch rejected (${msg.length} messages) on ${this.serverName}`);
+        for (const entry of msg) {
+          if (entry && typeof entry === 'object' && hasJsonRpcId((entry as { id?: unknown }).id)) {
+            this.sendError((entry as { id: string | number }).id, -32600, 'Mastyf AI: JSON-RPC batch requests are not supported; send each request on its own');
+          }
+        }
+        return;
+      }
+
+      // tools/call is a request. Without an id the policy checks below (which answer by id)
+      // were skipped, yet the call was still forwarded and the tool ran. Drop it.
+      if (msg?.method === 'tools/call' && !hasJsonRpcId(msg.id)) {
+        const toolName = String(msg.params?.name ?? 'unknown');
+        Logger.warn(`[Proxy] tools/call without an id dropped (tool '${toolName}' on ${this.serverName})`);
+        this.recordDeniedCall(toolName, 0, Date.now() - proxyStartTime, 'tools-call-without-id', 'tools/call sent as a notification (no id)');
+        return;
+      }
+
       let initAuth: string | undefined;
       if (msg.method === 'initialize') {
         initAuth = OAuthValidator.extractAuthFromMcpMessage(msg);
@@ -671,9 +693,12 @@ export class McpProxyServer {
           : true,
         fallbackSessionKey: this.mcpSessionId ?? undefined,
       });
-      if (pre.blocked && hasJsonRpcId(msg.id)) {
-        const err = pre.response.error as { code?: number; message?: string } | undefined;
-        this.sendError(msg.id, err?.code ?? -32001, err?.message ?? 'MCP pre-pipeline blocked request');
+      if (pre.blocked) {
+        // A blocked notification has no id to answer, but it must not be forwarded either.
+        if (hasJsonRpcId(msg.id)) {
+          const err = pre.response.error as { code?: number; message?: string } | undefined;
+          this.sendError(msg.id, err?.code ?? -32001, err?.message ?? 'MCP pre-pipeline blocked request');
+        }
         return;
       }
       if (!pre.blocked) {
