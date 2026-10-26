@@ -41,6 +41,23 @@ export async function relayMcpHttpRequest(
   const proxy = proxies[0];
   const requestId = parsed.id;
 
+  // A notification (no id) and a batch get no single reply with a matching id. Waiting for
+  // one held the serial queue for the full timeout and made every request behind it time
+  // out too. Notifications get 202 Accepted (MCP Streamable HTTP); a batch gets the replies
+  // to its requests, as a JSON array.
+  if (Array.isArray(parsed)) {
+    await relayBatch(body, parsed as unknown[], res, proxy);
+    return;
+  }
+  if (requestId === undefined || requestId === null) {
+    await mcpSerialQueue.enqueue(undefined, async () => {
+      await proxy.handleClientInput(body);
+    });
+    res.writeHead(202);
+    res.end();
+    return;
+  }
+
   await mcpSerialQueue.enqueue(undefined, async () => {
     const originalWrite = process.stdout.write.bind(process.stdout);
     let capturedResponse: string | null = null;
@@ -99,4 +116,57 @@ export async function relayMcpHttpRequest(
       process.stdout.write = originalWrite;
     }
   });
+}
+
+/** Forward a batch and answer with the replies to its requests (notifications get none). */
+async function relayBatch(
+  body: string,
+  entries: unknown[],
+  res: ServerResponse,
+  proxy: { handleClientInput(raw: string): Promise<void> },
+): Promise<void> {
+  const ids = entries
+    .map((entry) => (entry && typeof entry === 'object' ? (entry as { id?: unknown }).id : undefined))
+    .filter((id): id is string | number => id !== undefined && id !== null);
+  const replies = new Map<string, string>();
+
+  await mcpSerialQueue.enqueue(undefined, async () => {
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    let done: (() => void) | null = null;
+    const allReplied = new Promise<void>((resolve) => {
+      done = resolve;
+    });
+    process.stdout.write = ((chunk: unknown) => {
+      const str = Buffer.isBuffer(chunk) ? chunk.toString('utf-8') : String(chunk);
+      for (const line of str.split('\n').filter((l) => l.trim())) {
+        try {
+          const msg = JSON.parse(line) as { id?: unknown };
+          const key = JSON.stringify(msg.id);
+          if (ids.some((id) => JSON.stringify(id) === key)) replies.set(key, line);
+        } catch {
+          /* not json */
+        }
+      }
+      if (replies.size >= ids.length && done) done();
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await proxy.handleClientInput(body);
+      if (ids.length > 0 && replies.size < ids.length) {
+        await Promise.race([allReplied, new Promise((resolve) => setTimeout(resolve, 15000))]);
+      }
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+  });
+
+  if (ids.length === 0) {
+    res.writeHead(202);
+    res.end();
+    return;
+  }
+  const answered = ids.map((id) => replies.get(JSON.stringify(id))).filter((line): line is string => !!line);
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(`[${answered.join(',')}]`);
 }

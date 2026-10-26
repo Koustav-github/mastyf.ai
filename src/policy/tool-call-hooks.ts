@@ -270,7 +270,12 @@ export function createSensitivePathGuard(allowedPaths: string[], deniedPaths: st
 
       for (const pathKey of ['path', 'file', 'directory', 'source', 'target']) {
         const pathValue = args[pathKey];
-        if (typeof pathValue !== 'string') continue;
+        if (pathValue === undefined || pathValue === null) continue;
+        // A path must be a string. An object or array (e.g. { "$gt": "" }) used to skip both
+        // lists below entirely and reach the tool, which may interpret it as a query.
+        if (typeof pathValue !== 'string') {
+          return { allowed: false, reason: `Path argument "${pathKey}" must be a string, got ${Array.isArray(pathValue) ? 'array' : typeof pathValue}` };
+        }
 
         for (const denied of deniedPaths) {
           const regex = new RegExp(denied.replace(/\*/g, '.*'));

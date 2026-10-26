@@ -6,14 +6,22 @@ on:
     paths:
       - 'src/policy/**'
       - 'src/proxy/**'
+      - 'src/utils/mcp-http-relay.ts'
       - 'packages/core/**'
       - 'default-policy.yaml'
+      - 'adversarial-harness/node/mock-mcp-server.mjs'
+      - '.github/workflows/mcp-fuzzer-ci.yml'
+      - '.github/actions/mcp-fuzzer/**'
   pull_request:
     paths:
       - 'src/policy/**'
       - 'src/proxy/**'
+      - 'src/utils/mcp-http-relay.ts'
       - 'packages/core/**'
       - 'default-policy.yaml'
+      - 'adversarial-harness/node/mock-mcp-server.mjs'
+      - '.github/workflows/mcp-fuzzer-ci.yml'
+      - '.github/actions/mcp-fuzzer/**'
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
@@ -33,10 +41,39 @@ jobs:
       - name: Build Mastyf AI image
         run: docker build -f deploy/Dockerfile -t mastyf-ai:fuzz .
 
+      # The gateway needs an upstream MCP server to sit in front of; without one the proxy
+      # exits ("No MCP config files found") and nothing listens on :4000. The harness mock
+      # server ships in the image, needs no network, and echoes every call that reaches it.
+      #
+      # Policy: the default policy in block mode (without one the proxy only audits).
+      # MASTYF_AI_AGENTIC_ENABLED=false keeps the adaptive layer (zero-trust step-up, sandbox
+      # tiers, approvals) out of it: for an anonymous client it blocks every call, attacks
+      # and benign alike, so the fuzz would measure that instead of the policy. The
+      # fuzzer's control call checks that a harmless call still runs.
       - name: Start Mastyf AI
         run: |
+          mkdir -p "$RUNNER_TEMP/mastyf"
+          cat > "$RUNNER_TEMP/mastyf/mcp.json" <<'EOF'
+          {
+            "mcpServers": {
+              "mock": {
+                "command": "node",
+                "args": ["/app/adversarial-harness/node/mock-mcp-server.mjs"],
+                "transport": "stdio"
+              }
+            }
+          }
+          EOF
+          chmod 644 "$RUNNER_TEMP/mastyf/mcp.json"
+          # Host networking: the dashboard binds 127.0.0.1 inside the container (it refuses
+          # 0.0.0.0 while auth is disabled), which a -p port mapping can't reach. With the
+          # host's network, the container's loopback is the runner's, so it stays local-only.
           docker run -d --name mastyf-ai \
-            -p 4000:4000 -p 9090:9090 \
+            --network host \
+            -v "$RUNNER_TEMP/mastyf/mcp.json:/etc/mastyf-ai/mcp.json:ro" \
+            -e MASTYF_AI_POLICY_PATH=/app/default-policy.yaml \
+            -e MASTYF_AI_BLOCKING_MODE=block \
+            -e MASTYF_AI_AGENTIC_ENABLED=false \
             -e DASHBOARD_ENABLED=true \
             -e DASHBOARD_PORT=4000 \
             -e DASHBOARD_AUTH_DISABLED=true \
@@ -72,6 +109,8 @@ jobs:
           min_block_rate: '80'
           timeout_seconds: '10'
           fail_on_bypass: 'true'
+          # The mock server's harmless tool; skipped when fuzzing another target by hand.
+          control_tool: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.target_url == 'http://localhost:4000/mcp') && 'echo' || '' }}
 
       - name: Stop Mastyf AI
         if: always()

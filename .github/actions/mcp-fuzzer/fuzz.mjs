@@ -26,25 +26,86 @@ const target = getArg('--target') || 'http://localhost:4000/mcp';
 const minBlockRate = parseInt(getArg('--min-block-rate') || '80', 10);
 const timeoutMs = parseInt(getArg('--timeout') || '10', 10) * 1000;
 const failOnBypass = (getArg('--fail-on-bypass') || 'true') === 'true';
+/** A harmless tool on the target that must run; proves the gateway isn't simply blocking everything. */
+const controlTool = getArg('--control-tool') || '';
+
+const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' };
+
+/**
+ * MCP needs an `initialize` before any other call; without it the gateway answers
+ * "No active session — initialize first" to every payload, attacks and benign alike.
+ * No notifications/initialized follows: the HTTP bridge would wait for a reply to it.
+ */
+async function initialize() {
+  const res = await fetch(target, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'fuzz-init',
+      method: 'initialize',
+      params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'mcp-fuzzer', version: '1.0.0' } },
+    }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const session = res.headers.get('mcp-session-id');
+  if (session) headers['mcp-session-id'] = session;
+  const body = await res.text();
+  if (!res.ok || !body.includes('"result"')) throw new Error(`initialize failed (HTTP ${res.status}): ${body.slice(0, 200)}`);
+}
 
 async function send(payload, id) {
   const start = Date.now();
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs);
-    const res = await fetch(target, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: payload, signal: ctrl.signal });
+    const res = await fetch(target, { method: 'POST', headers, body: payload, signal: ctrl.signal });
     clearTimeout(t);
     const dur = Date.now() - start;
     const body = await res.text().catch(() => '');
-    const blocked = res.status === 401 || res.status === 403 || body.includes('Blocked') || body.includes('blocked') || body.includes('denied');
+    // What matters is whether the call executed: a JSON-RPC result means it reached the tool;
+    // an error (blocked, invalid, refused) or an auth rejection means it didn't.
+    const executed = res.ok && /"result"\s*:/.test(body) && !/"error"\s*:/.test(body);
+    const blocked = res.status === 401 || res.status === 403 || !executed;
     return { id, blocked, status: res.status, dur, body: body.slice(0, 200) };
   } catch (e) {
+    // A notification (no id) or a batch has no single reply to wait for. If it had been
+    // forwarded and run, the tool's result would come back (that is how the no-id tools/call
+    // bypass showed up); silence means the gateway dropped it, so it did not execute.
+    if (e?.name === 'AbortError' && !hasRequestId(payload)) {
+      return { id, blocked: true, noAnswer: true, status: 0, dur: Date.now() - start, body: 'no answer (dropped)' };
+    }
     return { id, blocked: false, status: 0, dur: Date.now() - start, body: e.message, err: true };
+  }
+}
+
+/** Whether the payload is a single JSON-RPC request with an id (so a reply is owed). */
+function hasRequestId(payload) {
+  try {
+    const msg = JSON.parse(payload);
+    return !Array.isArray(msg) && msg !== null && typeof msg === 'object' && msg.id !== undefined && msg.id !== null;
+  } catch {
+    return false; // unparseable: nothing valid to reply to
   }
 }
 
 async function main() {
   console.log(`\nMCP Protocol Fuzzer — ${target}\n`);
+  await initialize();
+
+  if (controlTool) {
+    const control = await send(
+      JSON.stringify({ jsonrpc: '2.0', id: 'fuzz-control', method: 'tools/call', params: { name: controlTool, arguments: { message: 'hello', query: 'hello' } } }),
+      'fuzz-control',
+    );
+    if (control.blocked || control.err) {
+      console.log(`INCONCLUSIVE: the harmless control call to '${controlTool}' did not run (${control.body}).`);
+      console.log('A gateway that blocks everything would "block" every attack too; fix the setup first.');
+      process.exit(1);
+    }
+    console.log(`  [control] harmless '${controlTool}' call ran, as it should\n`);
+  }
+
   const results = [];
   for (const f of FuzzPayloads) {
     process.stdout.write(`  [${f.id}] ${f.desc}... `);
@@ -54,6 +115,7 @@ async function main() {
     r.desc = f.desc;
     results.push(r);
     if (r.err) console.log('ERR');
+    else if (r.noAnswer) console.log('BLOCKED (dropped, no answer)');
     else if (r.blocked) console.log(`BLOCKED (${r.status})`);
     else console.log(`PASSED (${r.status})${f.block ? ' *** BYPASS' : ''}`);
   }
@@ -61,14 +123,24 @@ async function main() {
   const blocked = results.filter(r => r.blocked).length;
   const passed = results.filter(r => !r.blocked && !r.err).length;
   const errs = results.filter(r => r.err).length;
-  const total = results.length;
-  const rate = ((blocked / (total - errs)) * 100).toFixed(1);
+  // Block rate over the payloads that should be blocked; the benign ones are meant to pass,
+  // so counting them would fail even a gateway that gets every case right.
+  const attacks = results.filter(r => r.expBlock);
+  const attacksBlocked = attacks.filter(r => r.blocked).length;
+  const rate = attacks.length ? ((attacksBlocked / attacks.length) * 100).toFixed(1) : '100.0';
   const bypasses = results.filter(r => !r.blocked && r.expBlock);
+  const falsePositives = results.filter(r => r.blocked && !r.expBlock);
 
-  console.log(`\nResults: ${blocked} blocked, ${passed} passed, ${errs} errors, ${rate}% block rate\n`);
+  console.log(`\nResults: ${blocked} blocked, ${passed} passed, ${errs} errors`);
+  console.log(`Attacks blocked: ${attacksBlocked}/${attacks.length} (${rate}% block rate)`);
+  console.log(`Benign blocked (false positives): ${falsePositives.length}/${results.length - attacks.length}\n`);
   if (bypasses.length) {
     console.log('CRITICAL BYPASSES:');
-    bypasses.forEach(b => console.log(`  [${b.id}] ${b.desc} — ${b.cat}`));
+    bypasses.forEach(b => console.log(`  [${b.id}] ${b.desc} — ${b.cat}${b.err ? ' (no answer)' : ''}: ${b.body}`));
+  }
+  if (falsePositives.length) {
+    console.log('FALSE POSITIVES (benign payloads blocked):');
+    falsePositives.forEach(f => console.log(`  [${f.id}] ${f.desc} — ${f.cat}`));
   }
 
   if (failOnBypass && bypasses.length) { console.log('FAIL'); process.exit(1); }

