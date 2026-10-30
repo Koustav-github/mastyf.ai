@@ -109,7 +109,12 @@ export async function evaluateSyncSemanticRequest(
       // Failsafe: a call the heuristics passed and Laya is not sure about is unlike what it was
       // trained on, so treat it as malicious. On the held-out set, blocking below 0.9 caught every
       // attack with no extra false positives.
-      const unsure = !confidentAttack && laya.confidence < layaSureConfidence() && layaUnsureAction() === 'block';
+      // An "unsafe" too weak to count as an attack is unsure whatever the sure line is set to, so
+      // lowering MASTYF_AI_LAYA_SURE_CONFIDENCE can never let an "unsafe" verdict through.
+      const unsure =
+        layaUnsureAction() === 'block' &&
+        !confidentAttack &&
+        (laya.unsafe || laya.confidence < layaSureConfidence());
       const block = confidentAttack || unsure;
       Metrics.recordSemanticScanDuration(
         'sync_request',

@@ -159,6 +159,15 @@ describe('sync-semantic-request', () => {
         expect((await call('search', { q: 'something unusual' })).block).toBe(false);
       });
 
+      it('never lets a weak "unsafe" through, even with a low sure line', async () => {
+        enableLaya();
+        vi.stubEnv('MASTYF_AI_LAYA_SURE_CONFIDENCE', '0.5');
+        layaAnswers('unsafe', 0.55);
+        const out = await call('search', { q: 'something unusual' });
+        expect(out.block).toBe(true);
+        expect(out.rule).toBe('semantic-laya-unsure');
+      });
+
       it('can be turned off with MASTYF_AI_LAYA_UNSURE_ACTION=allow', async () => {
         enableLaya();
         vi.stubEnv('MASTYF_AI_LAYA_UNSURE_ACTION', 'allow');
