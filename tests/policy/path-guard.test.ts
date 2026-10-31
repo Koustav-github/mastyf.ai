@@ -31,6 +31,29 @@ describe('evaluatePathGuard', () => {
     expect(outside.block).toBe(true);
   });
 
+  it('matches a Windows workspace with drive letters, backslashes and capitals', () => {
+    process.env.MASTYF_AI_WORKSPACE = 'C:\\Users\\Manna\\mastyf-demo';
+    expect(evaluatePathGuard(['C:\\Users\\Manna\\mastyf-demo\\notes.txt']).block).toBe(false);
+    expect(evaluatePathGuard(['C:/Users/Manna/mastyf-demo/sub/a.md']).block).toBe(false);
+    expect(evaluatePathGuard(['c:/users/manna/mastyf-demo/a.md']).block).toBe(false);
+    expect(evaluatePathGuard(['C:/Users/Manna/mastyf-demo-evil/a.md']).block).toBe(true);
+    expect(evaluatePathGuard(['C:/Users/Manna/mastyf-demo/../../Windows/win.ini']).block).toBe(true);
+    expect(evaluatePathGuard(['D:/other/file.txt']).block).toBe(true);
+  });
+
+  it('matches a macOS workspace under /Users', () => {
+    process.env.MASTYF_AI_WORKSPACE = '/Users/Ada/Projects/app';
+    expect(evaluatePathGuard(['/Users/Ada/Projects/app/src/index.ts']).block).toBe(false);
+    expect(evaluatePathGuard(['/Users/Ada/Projects/other/x']).block).toBe(true);
+  });
+
+  it('normalizes MASTYF_AI_ALLOWED_PATH_PREFIXES the same way', () => {
+    process.env.MASTYF_AI_ALLOWED_PATH_PREFIXES = 'C:\\Data\\Shared, /Users/Ada/Docs';
+    expect(evaluatePathGuard(['C:/Data/Shared/report.csv']).block).toBe(false);
+    expect(evaluatePathGuard(['/Users/Ada/Docs/a.txt']).block).toBe(false);
+    expect(evaluatePathGuard(['C:/Data/Private/x']).block).toBe(true);
+  });
+
   it('translates local paths under Remote SSH workspace map', () => {
     process.env.MASTYF_AI_REMOTE_SSH = 'true';
     process.env.MASTYF_AI_REMOTE_PATH_MAP = 'C:/Users/dev/app=/home/vscode/app';

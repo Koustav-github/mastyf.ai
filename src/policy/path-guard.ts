@@ -73,12 +73,18 @@ export function extractPathArgumentValues(args: Record<string, unknown> | undefi
   return values;
 }
 
+/**
+ * Normalized exactly like the paths they are compared with (normalizePathForGuard: lower
+ * case, forward slashes, leading "/"). They used to be left as given, so on Windows
+ * ("C:\Users\…" vs "/c:/users/…") and on macOS ("/Users/…" vs "/users/…") no path was ever
+ * inside the workspace and every file read was blocked.
+ */
 function allowedPathPrefixes(): string[] {
   const prefixes: string[] = [];
   const workspace = process.env.MASTYF_AI_WORKSPACE?.trim();
-  if (workspace) prefixes.push(translatePath(workspace));
+  if (workspace) prefixes.push(normalizePathForGuard(workspace));
   const list = process.env.MASTYF_AI_ALLOWED_PATH_PREFIXES?.split(',').map((s) => s.trim()).filter(Boolean);
-  if (list?.length) prefixes.push(...list.map(translatePath));
+  if (list?.length) prefixes.push(...list.map(normalizePathForGuard));
   return prefixes;
 }
 
