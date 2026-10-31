@@ -6,6 +6,8 @@
  * back. The checkpoint and its training pipeline are kept private.
  */
 
+import { defaultControlPlaneUrl } from '../constants/cloud-url.js';
+
 /** The question the model was trained on, word for word; changing it needs retraining. */
 export const LAYA_VERDICT_QUESTION = {
   type: 'choice',
@@ -69,6 +71,16 @@ export function layaRequestState(toolName: string, args: Record<string, unknown>
   return `MCP tool call\nTool: ${toolName}\nArguments: ${pythonJson(args)}`;
 }
 
+/** True only for https on the Mastyf cloud's own origin, the one place the workspace key may go. */
+function isMastyfCloudUrl(url: string): boolean {
+  try {
+    const target = new URL(url);
+    return target.protocol === 'https:' && target.origin === new URL(defaultControlPlaneUrl()).origin;
+  } catch {
+    return false;
+  }
+}
+
 /** Laya's verdict on a tool call, or null if the service is unreachable, slow, or replies oddly. */
 export async function classifyRequestWithLaya(
   toolName: string,
@@ -79,8 +91,11 @@ export async function classifyRequestWithLaya(
   if (!url) return null;
   const timeoutMs = parseInt(process.env['MASTYF_AI_LAYA_TIMEOUT_MS'] || String(DEFAULT_TIMEOUT_MS), 10);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // The workspace key is a fallback for the hosted route only; a self-hosted or other server gets
+  // nothing unless MASTYF_AI_LAYA_API_KEY is set for it.
   const apiKey =
-    process.env['MASTYF_AI_LAYA_API_KEY']?.trim() || process.env['MASTYF_AI_CLOUD_API_KEY']?.trim();
+    process.env['MASTYF_AI_LAYA_API_KEY']?.trim() ||
+    (isMastyfCloudUrl(url) ? process.env['MASTYF_AI_CLOUD_API_KEY']?.trim() : undefined);
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   const started = Date.now();

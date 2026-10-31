@@ -119,6 +119,44 @@ describe('laya-decider', () => {
       expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer gcp_x');
     });
 
+    describe('never sends the workspace key anywhere but the Mastyf cloud', () => {
+      async function authorizationFor(url: string): Promise<string | undefined> {
+        vi.stubEnv('MASTYF_AI_LAYA_URL', url);
+        vi.stubEnv('MASTYF_AI_LAYA_API_KEY', '');
+        vi.stubEnv('MASTYF_AI_CLOUD_API_KEY', 'gcp_x');
+        const fetchMock = vi.fn(async () => layaReply('safe', 0.95));
+        vi.stubGlobal('fetch', fetchMock);
+        await classifyRequestWithLaya('t', {});
+        const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        return (init.headers as Record<string, string>)['Authorization'];
+      }
+
+      it.each([
+        ['a self-hosted laya-serve', 'http://127.0.0.1:8077/v1/systemone'],
+        ['another https host', 'https://laya.example.com/api/v1/laya/classify'],
+        ['a look-alike host', 'https://www.mastyf.ai.evil.example/api/v1/laya/classify'],
+        ['the cloud host over http', 'http://www.mastyf.ai/api/v1/laya/classify'],
+      ])('%s', async (_name, url) => {
+        expect(await authorizationFor(url)).toBeUndefined();
+      });
+
+      it('follows a configured cloud URL', async () => {
+        vi.stubEnv('MASTYF_AI_CLOUD_URL', 'https://cloud.acme.example');
+        expect(await authorizationFor('https://cloud.acme.example/api/v1/laya/classify')).toBe('Bearer gcp_x');
+      });
+
+      it('still sends an explicit Laya key to a self-hosted server', async () => {
+        vi.stubEnv('MASTYF_AI_LAYA_URL', 'http://127.0.0.1:8077/v1/systemone');
+        vi.stubEnv('MASTYF_AI_LAYA_API_KEY', 'laya-key');
+        vi.stubEnv('MASTYF_AI_CLOUD_API_KEY', 'gcp_x');
+        const fetchMock = vi.fn(async () => layaReply('safe', 0.95));
+        vi.stubGlobal('fetch', fetchMock);
+        await classifyRequestWithLaya('t', {});
+        const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer laya-key');
+      });
+    });
+
     it('the Laya key wins when both are set', async () => {
       vi.stubEnv('MASTYF_AI_LAYA_URL', 'https://www.mastyf.ai/api/v1/laya/classify');
       vi.stubEnv('MASTYF_AI_LAYA_API_KEY', 'laya-key');

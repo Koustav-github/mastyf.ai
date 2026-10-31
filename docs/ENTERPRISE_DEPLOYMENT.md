@@ -75,7 +75,7 @@ When `MASTYF_AI_LAYA_URL` is set, calls the rules and the local scorer cannot de
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `MASTYF_AI_LAYA_URL` | unset (Laya off) | Full endpoint: `https://www.mastyf.ai/api/v1/laya/classify` for Mastyf's hosted Laya, or a self-hosted `laya-serve` such as `http://127.0.0.1:8077/v1/systemone` |
-| `MASTYF_AI_LAYA_API_KEY` | `MASTYF_AI_CLOUD_API_KEY` | Bearer key; for the hosted route, a workspace API key with the `laya:classify` scope |
+| `MASTYF_AI_LAYA_API_KEY` | `MASTYF_AI_CLOUD_API_KEY`, for the hosted route only | Bearer key; for the hosted route, a workspace API key with the `laya:classify` scope. The workspace key is only ever sent to https on the Mastyf cloud's origin (`MASTYF_AI_CLOUD_URL`, default `https://www.mastyf.ai`); a self-hosted server gets a key only if this is set |
 | `MASTYF_AI_LAYA_TIMEOUT_MS` | `1500` | Time budget per verdict; on timeout the call is handled like an unavailable LLM |
 | `MASTYF_AI_LAYA_SURE_CONFIDENCE` | `0.9` | Below this confidence a verdict counts as unsure |
 | `MASTYF_AI_LAYA_UNSURE_ACTION` | `block` | `block` blocks unsure verdicts (rule `semantic-laya-unsure`); `allow` blocks only confident attacks (unsafe at confidence ≥ 0.6 by default) |
