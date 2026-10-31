@@ -17,7 +17,6 @@ export const LAYA_VERDICT_QUESTION = {
   },
 } as const;
 
-const DEFAULT_MODEL = 'mastyf';
 // Through laya-serve on CPU (Ryzen 5 5625U): p50 ~740 ms, p95 ~1.2 s for the verdict alone. At
 // 800 ms a third of calls timed out; at 1,500 ms 74 of 75 held-out attacks were caught.
 const DEFAULT_TIMEOUT_MS = 1500;
@@ -75,22 +74,23 @@ export async function classifyRequestWithLaya(
   toolName: string,
   args: Record<string, unknown>,
 ): Promise<LayaVerdict | null> {
-  const base = process.env['MASTYF_AI_LAYA_URL']?.trim().replace(/\/+$/, '');
-  if (!base) return null;
+  // The full endpoint: Mastyf's hosted route or a self-hosted laya-serve's /v1/systemone.
+  const url = process.env['MASTYF_AI_LAYA_URL']?.trim();
+  if (!url) return null;
   const timeoutMs = parseInt(process.env['MASTYF_AI_LAYA_TIMEOUT_MS'] || String(DEFAULT_TIMEOUT_MS), 10);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const apiKey = process.env['MASTYF_AI_LAYA_API_KEY']?.trim();
+  const apiKey =
+    process.env['MASTYF_AI_LAYA_API_KEY']?.trim() || process.env['MASTYF_AI_CLOUD_API_KEY']?.trim();
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   const started = Date.now();
   try {
-    const res = await fetch(`${base}/v1/systemone`, {
+    const res = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         state: layaRequestState(toolName, args),
         questions: { verdict: LAYA_VERDICT_QUESTION },
-        model: process.env['MASTYF_AI_LAYA_MODEL']?.trim() || DEFAULT_MODEL,
       }),
       signal: AbortSignal.timeout(timeoutMs),
     });

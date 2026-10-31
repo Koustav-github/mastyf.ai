@@ -72,8 +72,8 @@ describe('laya-decider', () => {
   });
 
   describe('classifyRequestWithLaya', () => {
-    it('asks only the verdict, of the configured model, and reads the answer', async () => {
-      vi.stubEnv('MASTYF_AI_LAYA_URL', 'http://127.0.0.1:8000/');
+    it('asks only the verdict, at the URL as given, and reads the answer', async () => {
+      vi.stubEnv('MASTYF_AI_LAYA_URL', 'https://www.mastyf.ai/api/v1/laya/classify');
       vi.stubEnv('MASTYF_AI_LAYA_API_KEY', 'test-key');
       const fetchMock = vi.fn(async () => layaReply('unsafe', 0.97));
       vi.stubGlobal('fetch', fetchMock);
@@ -82,12 +82,52 @@ describe('laya-decider', () => {
 
       expect(out).toMatchObject({ unsafe: true, confidence: 0.97 });
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-      expect(url).toBe('http://127.0.0.1:8000/v1/systemone');
+      expect(url).toBe('https://www.mastyf.ai/api/v1/laya/classify');
       expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer test-key');
       const body = JSON.parse(String(init.body));
       expect(Object.keys(body.questions)).toEqual(['verdict']);
-      expect(body.model).toBe('mastyf');
       expect(body.state).toBe('MCP tool call\nTool: run_command\nArguments: {"cmd": "cat /etc/passwd"}');
+    });
+
+    it('sends no model', async () => {
+      vi.stubEnv('MASTYF_AI_LAYA_URL', 'https://www.mastyf.ai/api/v1/laya/classify');
+      vi.stubEnv('MASTYF_AI_LAYA_MODEL', 'other');
+      const fetchMock = vi.fn(async () => layaReply('safe', 0.95));
+      vi.stubGlobal('fetch', fetchMock);
+      await classifyRequestWithLaya('t', {});
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect('model' in JSON.parse(String(init.body))).toBe(false);
+    });
+
+    it('posts to a self-hosted laya-serve URL unchanged', async () => {
+      vi.stubEnv('MASTYF_AI_LAYA_URL', 'http://127.0.0.1:8077/v1/systemone');
+      const fetchMock = vi.fn(async () => layaReply('safe', 0.95));
+      vi.stubGlobal('fetch', fetchMock);
+      await classifyRequestWithLaya('t', {});
+      const [url] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe('http://127.0.0.1:8077/v1/systemone');
+    });
+
+    it('uses the workspace key when no Laya key is set', async () => {
+      vi.stubEnv('MASTYF_AI_LAYA_URL', 'https://www.mastyf.ai/api/v1/laya/classify');
+      vi.stubEnv('MASTYF_AI_LAYA_API_KEY', '');
+      vi.stubEnv('MASTYF_AI_CLOUD_API_KEY', 'gcp_x');
+      const fetchMock = vi.fn(async () => layaReply('safe', 0.95));
+      vi.stubGlobal('fetch', fetchMock);
+      await classifyRequestWithLaya('t', {});
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer gcp_x');
+    });
+
+    it('the Laya key wins when both are set', async () => {
+      vi.stubEnv('MASTYF_AI_LAYA_URL', 'https://www.mastyf.ai/api/v1/laya/classify');
+      vi.stubEnv('MASTYF_AI_LAYA_API_KEY', 'laya-key');
+      vi.stubEnv('MASTYF_AI_CLOUD_API_KEY', 'gcp_x');
+      const fetchMock = vi.fn(async () => layaReply('safe', 0.95));
+      vi.stubGlobal('fetch', fetchMock);
+      await classifyRequestWithLaya('t', {});
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer laya-key');
     });
 
     it('returns null when the service fails, so the caller can degrade', async () => {
