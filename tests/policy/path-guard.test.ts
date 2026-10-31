@@ -47,6 +47,41 @@ describe('evaluatePathGuard', () => {
     expect(evaluatePathGuard(['/Users/Ada/Projects/other/x']).block).toBe(true);
   });
 
+  describe('letter case', () => {
+    const realPlatform = process.platform;
+    const onPlatform = (platform: NodeJS.Platform) =>
+      Object.defineProperty(process, 'platform', { value: platform, configurable: true });
+    afterEach(() => onPlatform(realPlatform));
+
+    it('keeps case on Linux, where /home/u/APP is a different folder', () => {
+      onPlatform('linux');
+      process.env.MASTYF_AI_WORKSPACE = '/home/u/app';
+      expect(evaluatePathGuard(['/home/u/app/src/a.ts']).block).toBe(false);
+      expect(evaluatePathGuard(['/home/u/APP/secret.txt']).block).toBe(true);
+      process.env.MASTYF_AI_WORKSPACE = '/home/u/App';
+      expect(evaluatePathGuard(['/home/u/App/src/a.ts']).block).toBe(false);
+      expect(evaluatePathGuard(['/home/u/app/src/a.ts']).block).toBe(true);
+    });
+
+    it('ignores case on macOS', () => {
+      onPlatform('darwin');
+      process.env.MASTYF_AI_WORKSPACE = '/Users/Ada/Projects/app';
+      expect(evaluatePathGuard(['/users/ada/projects/app/x.ts']).block).toBe(false);
+    });
+
+    it('ignores case for Windows drive paths, whatever the platform', () => {
+      onPlatform('linux');
+      process.env.MASTYF_AI_WORKSPACE = 'C:\\Users\\Manna\\demo';
+      expect(evaluatePathGuard(['c:/users/manna/demo/a.md']).block).toBe(false);
+    });
+
+    it('still blocks sensitive paths in any case on Linux', () => {
+      onPlatform('linux');
+      expect(evaluatePathGuard(['/home/u/.SSH/id_rsa']).block).toBe(true);
+      expect(evaluatePathGuard(['/ETC/passwd']).block).toBe(true);
+    });
+  });
+
   it('normalizes MASTYF_AI_ALLOWED_PATH_PREFIXES the same way', () => {
     process.env.MASTYF_AI_ALLOWED_PATH_PREFIXES = 'C:\\Data\\Shared, /Users/Ada/Docs';
     expect(evaluatePathGuard(['C:/Data/Shared/report.csv']).block).toBe(false);
