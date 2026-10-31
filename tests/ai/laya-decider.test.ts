@@ -7,6 +7,7 @@ import {
   LAYA_VERDICT_QUESTION,
   layaRequestState,
 } from '../../src/ai/laya-decider.js';
+import { LAYA_VERDICT_QUESTION as CLOUD_VERDICT_QUESTION } from '../../apps/cloud/lib/laya/verdict-question.js';
 
 function layaReply(choice: string, confidence: number, status = 200): Response {
   return new Response(
@@ -41,6 +42,10 @@ describe('laya-decider', () => {
       expect(layaRequestState('write_note', { text: 'line1\nline2 "q" \\ tab\t\u0001', score: 0.5 })).toBe(
         'MCP tool call\nTool: write_note\nArguments: {"text": "line1\\nline2 \\"q\\" \\\\ tab\\t\\u0001", "score": 0.5}',
       );
+    });
+
+    it('the proxy and the cloud ask the same verdict question', () => {
+      expect(CLOUD_VERDICT_QUESTION).toEqual(LAYA_VERDICT_QUESTION);
     });
 
     // The training pipeline is private, so this check runs only where it is checked out.
