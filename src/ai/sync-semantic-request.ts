@@ -5,12 +5,7 @@
 import type { CallContext } from '../policy/policy-types.js';
 import type { PolicyDecision } from '../policy/policy-types.js';
 import { LlmAssistant } from './llm-assistant.js';
-import {
-  classifyRequestWithLaya,
-  isLayaDeciderEnabled,
-  layaSureConfidence,
-  layaUnsureAction,
-} from './laya-decider.js';
+import { activeRequestClassifier } from '../extensions/index.js';
 import { scoreLocalSemanticText } from './local-semantic-classifier.js';
 import {
   isEnterpriseMode,
@@ -50,7 +45,7 @@ export interface SyncSemanticRequestInput {
 export interface SyncSemanticRequestResult {
   block: boolean;
   result: SemanticAuditResult;
-  source: 'local' | 'laya' | 'llm' | 'none';
+  source: 'local' | 'classifier' | 'llm' | 'none';
   rule: string;
   reason: string;
 }
@@ -100,42 +95,30 @@ export async function evaluateSyncSemanticRequest(
     }
   }
 
-  // Laya replaces the LLM verdict when its service is configured: 98.7% of held-out attacks
-  // caught against 5.3% for the LLM, in ~0.7 s on CPU where the LLM took ~3.5 s.
-  if (isSyncSemanticRequestLlmEnabledForTenant(tenantId) && isLayaDeciderEnabled()) {
-    const laya = await classifyRequestWithLaya(input.context.toolName, input.context.arguments ?? {});
-    if (laya) {
-      const confidentAttack = laya.unsafe && laya.confidence >= MIN_CONFIDENCE;
-      // Failsafe: a call the heuristics passed and Laya is not sure about is unlike what it was
-      // trained on, so treat it as malicious. On the held-out set, blocking below 0.9 caught every
-      // attack with no extra false positives.
-      // An "unsafe" too weak to count as an attack is unsure whatever the sure line is set to, so
-      // lowering MASTYF_AI_LAYA_SURE_CONFIDENCE can never let an "unsafe" verdict through.
-      const unsure =
-        layaUnsureAction() === 'block' &&
-        !confidentAttack &&
-        (laya.unsafe || laya.confidence < layaSureConfidence());
-      const block = confidentAttack || unsure;
+  // An extension's classifier replaces the LLM verdict when one is active.
+  const classifier = activeRequestClassifier();
+  if (isSyncSemanticRequestLlmEnabledForTenant(tenantId) && classifier) {
+    const verdict = await classifier.classify(input.context.toolName, input.context.arguments ?? {});
+    if (verdict) {
       Metrics.recordSemanticScanDuration(
         'sync_request',
-        laya.latencyMs,
-        confidentAttack ? 'laya_block' : unsure ? 'laya_unsure_block' : 'laya_allow',
+        verdict.latencyMs,
+        verdict.unsure ? 'classifier_unsure_block' : verdict.block ? 'classifier_block' : 'classifier_allow',
       );
-      const reasoning = `laya: ${laya.unsafe ? 'unsafe' : 'safe'} (${laya.confidence.toFixed(2)})${unsure ? ', not sure enough to allow' : ''}`;
       return {
-        block,
+        block: verdict.block,
         result: {
-          suspicious: block,
-          confidence: laya.confidence,
-          categories: confidentAttack ? ['laya-unsafe'] : unsure ? ['laya-unsure'] : ['none'],
-          reasoning,
+          suspicious: verdict.block,
+          confidence: verdict.confidence,
+          categories: verdict.unsure ? ['classifier-unsure'] : verdict.block ? ['classifier-unsafe'] : ['none'],
+          reasoning: verdict.reasoning,
         },
-        source: 'laya',
-        rule: unsure ? 'semantic-laya-unsure' : 'semantic-sync-request',
-        reason: reasoning,
+        source: 'classifier',
+        rule: verdict.unsure ? 'semantic-classifier-unsure' : 'semantic-sync-request',
+        reason: verdict.reasoning,
       };
     }
-    reportSemanticDegradation('sync_request_laya_unavailable', {
+    reportSemanticDegradation('sync_request_classifier_unavailable', {
       serverName: input.context.serverName,
       toolName: input.context.toolName,
       tenantId,
@@ -146,7 +129,7 @@ export async function evaluateSyncSemanticRequest(
         result: noop,
         source: 'none',
         rule: 'semantic-degraded',
-        reason: `Laya unavailable (${isSemanticStrictMode(tenantId) ? 'strict mode' : `fail-closed: ${riskTier}`})`,
+        reason: `Classifier unavailable (${isSemanticStrictMode(tenantId) ? 'strict mode' : `fail-closed: ${riskTier}`})`,
       };
     }
     return {
@@ -154,7 +137,7 @@ export async function evaluateSyncSemanticRequest(
       result: noop,
       source: 'none',
       rule: 'semantic-sync-request',
-      reason: 'laya unavailable',
+      reason: 'classifier unavailable',
     };
   }
 

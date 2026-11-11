@@ -5,11 +5,19 @@ const mocks = vi.hoisted(() => ({
   checkLayaRateLimit: vi.fn(),
   resolveLayaTarget: vi.fn(),
   forwardToLaya: vi.fn(),
+  workspaceHasProtocolX: vi.fn(),
+  findIssuedEntitlement: vi.fn(),
+  sharedTarget: vi.fn(),
 }));
 
+vi.mock('@/lib/laya/plan', () => ({ workspaceHasProtocolX: mocks.workspaceHasProtocolX }));
 vi.mock('@/lib/org-context', () => ({ resolveOrgFromApiKey: mocks.resolveOrgFromApiKey }));
 vi.mock('@/lib/rate-limit', () => ({ checkLayaRateLimit: mocks.checkLayaRateLimit }));
-vi.mock('@/lib/laya/deployment', () => ({ resolveLayaTarget: mocks.resolveLayaTarget }));
+vi.mock('@/lib/laya/deployment', () => ({ resolveLayaTarget: mocks.resolveLayaTarget, sharedTarget: mocks.sharedTarget }));
+vi.mock('@/lib/billing/license-keys', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/billing/license-keys')>()),
+  findIssuedEntitlement: mocks.findIssuedEntitlement,
+}));
 vi.mock('@/lib/laya/forward', () => ({ forwardToLaya: mocks.forwardToLaya }));
 
 import { POST, dynamic, preferredRegion, runtime } from '../app/api/v1/laya/classify/route';
@@ -43,9 +51,107 @@ describe('POST /api/v1/laya/classify', () => {
     mocks.resolveOrgFromApiKey.mockImplementation(async (token: string) =>
       token === KEY ? { org: { id: 'org-A' }, apiKeyId: 'k1', scopes: ['badge:read', 'laya:classify'] } : null,
     );
+    mocks.workspaceHasProtocolX.mockResolvedValue(true);
     mocks.checkLayaRateLimit.mockResolvedValue({ success: true });
     mocks.resolveLayaTarget.mockResolvedValue(REMOTE);
     mocks.forwardToLaya.mockResolvedValue({ ok: true, choice: 'unsafe', confidence: 0.97 });
+  });
+
+  describe('license keys from the desktop app', () => {
+    const LICENSE = 'MG-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG';
+
+    beforeEach(() => {
+      mocks.sharedTarget.mockReturnValue(REMOTE);
+    });
+
+    it('gives an active license a verdict from the shared server', async () => {
+      mocks.findIssuedEntitlement.mockResolvedValue({ id: 'ent1', status: 'active' });
+      const res = await call({ key: LICENSE });
+      expect(res.status).toBe(200);
+      expect(mocks.findIssuedEntitlement).toHaveBeenCalledWith(LICENSE);
+      expect(mocks.checkLayaRateLimit).toHaveBeenCalledWith('license-ent1');
+      expect(mocks.resolveOrgFromApiKey).not.toHaveBeenCalled();
+    });
+
+    it('401 for a key nobody issued', async () => {
+      mocks.findIssuedEntitlement.mockResolvedValue(null);
+      expect((await call({ key: LICENSE })).status).toBe(401);
+      expect(mocks.forwardToLaya).not.toHaveBeenCalled();
+    });
+
+    it('402 for a lapsed license', async () => {
+      mocks.findIssuedEntitlement.mockResolvedValue({ id: 'ent1', status: 'expired' });
+      expect((await call({ key: LICENSE })).status).toBe(402);
+      expect(mocks.forwardToLaya).not.toHaveBeenCalled();
+    });
+
+    it('limits each license separately', async () => {
+      mocks.findIssuedEntitlement.mockResolvedValue({ id: 'ent1', status: 'active' });
+      mocks.checkLayaRateLimit.mockResolvedValue({ success: false, retryAfter: 7 });
+      const res = await call({ key: LICENSE });
+      expect(res.status).toBe(429);
+      expect(mocks.forwardToLaya).not.toHaveBeenCalled();
+    });
+
+    describe('a one-device key', () => {
+      const oneDevice = (device: string | null) => ({ id: 'ent1', status: 'active', activationLimit: 1, lemonInstanceId: device });
+
+      it('gets a verdict on the device it is tied to', async () => {
+        mocks.findIssuedEntitlement.mockResolvedValue(oneDevice('shield-a'));
+        const res = await call({ key: LICENSE, headers: { 'X-Mastyf-Device': 'shield-a' } });
+        expect(res.status).toBe(200);
+      });
+
+      it.each<[string, string | null, Record<string, string>]>([
+        ['another device', 'shield-a', { 'X-Mastyf-Device': 'shield-b' }],
+        ['a request that names no device', 'shield-a', {}],
+        ['a blank device name', 'shield-a', { 'X-Mastyf-Device': '   ' }],
+        ['a key that was never activated', null, { 'X-Mastyf-Device': 'shield-a' }],
+      ])('is refused for %s, before anything reaches the model', async (_label, bound, headers) => {
+        mocks.findIssuedEntitlement.mockResolvedValue(oneDevice(bound));
+        const res = await call({ key: LICENSE, headers });
+        expect(res.status).toBe(403);
+        expect(mocks.checkLayaRateLimit).not.toHaveBeenCalled();
+        expect(mocks.forwardToLaya).not.toHaveBeenCalled();
+      });
+    });
+
+    it('does not need a device name for a key without a device limit', async () => {
+      mocks.findIssuedEntitlement.mockResolvedValue({ id: 'ent1', status: 'active', activationLimit: 2, lemonInstanceId: null });
+      expect((await call({ key: LICENSE })).status).toBe(200);
+    });
+
+    it('503, not a verdict, when the lookup fails', async () => {
+      mocks.findIssuedEntitlement.mockRejectedValue(new Error('db down'));
+      expect((await call({ key: LICENSE })).status).toBe(503);
+    });
+  });
+
+  describe('paid plan', () => {
+    it('402 for a workspace without a paid plan, before anything reaches the model', async () => {
+      mocks.workspaceHasProtocolX.mockResolvedValue(false);
+      const res = await call();
+      expect(res.status).toBe(402);
+      expect(await res.json()).toEqual({ error: 'Protocol X requires a paid plan' });
+      expect(mocks.workspaceHasProtocolX).toHaveBeenCalledWith('org-A');
+      expect(mocks.checkLayaRateLimit).not.toHaveBeenCalled();
+      expect(mocks.resolveLayaTarget).not.toHaveBeenCalled();
+      expect(mocks.forwardToLaya).not.toHaveBeenCalled();
+    });
+
+    it('503, not a verdict, when the plan cannot be read', async () => {
+      mocks.workspaceHasProtocolX.mockRejectedValue(new Error('db down'));
+      const res = await call();
+      expect(res.status).toBe(503);
+      expect(mocks.forwardToLaya).not.toHaveBeenCalled();
+    });
+
+    it('does not read the plan for a key that lacks the scope', async () => {
+      mocks.resolveOrgFromApiKey.mockResolvedValue({ org: { id: 'org-A' }, apiKeyId: 'k1', scopes: ['badge:read'] });
+      const res = await call();
+      expect(res.status).toBe(403);
+      expect(mocks.workspaceHasProtocolX).not.toHaveBeenCalled();
+    });
   });
 
   afterEach(() => {

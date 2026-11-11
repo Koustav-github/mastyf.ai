@@ -4,8 +4,10 @@ import { PLAN_FOR_TIER } from '@/components/dashboard/plans';
 import { PRICING_TIERS } from '@/components/landing/stats';
 import { NewLicenseKeyButton } from '@/components/billing/NewLicenseKeyButton';
 import { RazorpayCheckoutButton } from '@/components/billing/RazorpayCheckoutButton';
+import { ShieldDownloadButtons } from '@/components/download/ShieldDownloadButtons';
 import { issuedLicenseSummary } from '@/lib/billing/license-keys';
-import { isPaidPlanId } from '@/lib/billing/plans';
+import { developerOfferFor } from '@/lib/billing/fulfillment';
+import { formatPlanPrice, isPaidPlanId } from '@/lib/billing/plans';
 import { activeLicense, listInstances, listTeams, requireDashboard } from '@/lib/dashboard-data';
 import { formatCount, formatDate } from '@/lib/format';
 
@@ -18,11 +20,12 @@ export default async function LicensePage() {
   const { session, ctx } = await requireDashboard();
   const orgId = ctx.org.id;
   const email = session.user.email;
-  const [license, instances, teams, licenseKey] = await Promise.all([
+  const [license, instances, teams, licenseKey, developerOffer] = await Promise.all([
     activeLicense(orgId),
     listInstances(orgId),
     listTeams(orgId),
     email ? issuedLicenseSummary(email) : null,
+    developerOfferFor(orgId).catch(() => null),
   ]);
 
   const plan = PLAN_FOR_TIER[license.tier];
@@ -110,6 +113,9 @@ export default async function LicensePage() {
                 <p className="panel__text">
                   Shield and the gateway check this key with Mastyf Cloud and stay unlocked until the date above.
                   Buying again extends it; the key itself does not change.
+                  {licenseKey.oneDevice
+                    ? ' This key works on one device. To move it to another device, create a new key; the old device stops working at its next license check.'
+                    : null}
                 </p>
                 <NewLicenseKeyButton />
               </>
@@ -120,6 +126,19 @@ export default async function LicensePage() {
             )}
           </div>
         </section>
+
+        {licenseKey?.active ? (
+          <section className="panel" aria-labelledby="download-shield">
+            <div className="panel__head">
+              <h2 id="download-shield" className="panel__title">
+                Download Shield
+              </h2>
+            </div>
+            <div className="panel__body">
+              <ShieldDownloadButtons />
+            </div>
+          </section>
+        ) : null}
 
         <section className="panel" aria-labelledby="plans">
           <div className="panel__head">
@@ -149,28 +168,46 @@ export default async function LicensePage() {
                 <tbody>
                   {PRICING_TIERS.map((tier) => {
                     const current = tier.id === plan.pricingId;
+                    const offer = tier.id === 'developer' && (developerOffer?.open ?? false);
                     return (
-                      <tr key={tier.id}>
+                      <tr key={tier.id} className={current ? 'plan-row--current' : undefined}>
                         <td>
                           {tier.name}
+                          {current ? (
+                            <span className="status status--active plan-current">
+                              <span className="status__mark">●</span>Current plan
+                            </span>
+                          ) : null}
                           <span className="cell-sub">{tier.audience}</span>
                         </td>
                         <td>
-                          {tier.price}
-                          <span className="cell-sub">{tier.billing}</span>
+                          {isPaidPlanId(tier.id) ? formatPlanPrice(tier.id, 'monthly', offer) : tier.price}
+                          <span className="cell-sub">
+                            {isPaidPlanId(tier.id)
+                              ? `per month, or ${formatPlanPrice(tier.id, 'yearly', offer)} per year`
+                              : tier.billing}
+                          </span>
                         </td>
                         <td className="dim col-opt">{tier.highlights.join(', ')}</td>
                         <td className="num">
                           {isPaidPlanId(tier.id) ? (
-                            <RazorpayCheckoutButton
-                              plan={tier.id}
-                              signedIn
-                              label={current ? 'Renew 30 days' : tier.shortCta}
-                              className="btn btn-sm"
-                            />
-                          ) : current ? (
-                            <span className="status status--active">Current</span>
-                          ) : tier.external ? (
+                            <div className="plan-buy">
+                              <RazorpayCheckoutButton
+                                plan={tier.id}
+                                period="monthly"
+                                signedIn
+                                label={current ? 'Renew monthly' : 'Buy monthly'}
+                                className="btn btn-sm"
+                              />
+                              <RazorpayCheckoutButton
+                                plan={tier.id}
+                                period="yearly"
+                                signedIn
+                                label={current ? 'Renew yearly' : 'Buy yearly'}
+                                className="btn btn-sm"
+                              />
+                            </div>
+                          ) : current ? null : tier.external ? (
                             <a href={tier.href} className="btn btn-sm" target="_blank" rel="noopener noreferrer">
                               {tier.shortCta}
                             </a>

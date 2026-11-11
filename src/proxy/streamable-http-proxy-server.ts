@@ -48,6 +48,20 @@ import {
   validateMcpMessage,
 } from './http-proxy-security.js';
 
+/** Set by this proxy on a message as it moves through. A client must not be able to supply them. */
+const INTERNAL_MESSAGE_FIELDS = ['_defenseTenantId', '_spendReservationId', '_rotatedSessionToken'] as const;
+
+function dropInternalFields(msg: Record<string, unknown>): void {
+  for (const field of INTERNAL_MESSAGE_FIELDS) delete msg[field];
+}
+
+/** The message as the upstream server should see it. */
+function upstreamBody(msg: Record<string, unknown>): string {
+  const copy = { ...msg };
+  dropInternalFields(copy);
+  return JSON.stringify(copy);
+}
+
 export interface StreamableHttpProxyOptions {
   listenPort: number;
   upstreamBaseUrl: string;
@@ -174,6 +188,8 @@ export class StreamableHttpProxyServer {
     msg: Record<string, unknown>,
     req: IncomingMessage,
   ): Promise<unknown> {
+    dropInternalFields(msg);
+
     const { runMcpPrePipeline, applyMcpResponsePipeline, mcpResponseBlockJson } = await import(
       './mcp-request-pipeline.js'
     );
@@ -216,11 +232,11 @@ export class StreamableHttpProxyServer {
         toolName: (msg.params as { name?: string } | undefined)?.name ?? 'unknown',
         tenantId: relayTenantId,
         transport: 'streamable-http',
-      }, () => this.relayToUpstream(JSON.stringify(msg), req, {
+      }, () => this.relayToUpstream(upstreamBody(msg), req, {
         tenantId: (msg as { _defenseTenantId?: string })._defenseTenantId ?? relayTenantId,
         spendReservationId: (msg as { _spendReservationId?: string })._spendReservationId,
       }))
-      : await this.relayToUpstream(JSON.stringify(msg), req);
+      : await this.relayToUpstream(upstreamBody(msg), req);
     if (msg.method === 'tools/call') {
       releaseProxyInflight(this.opts.serverName);
     }
@@ -243,11 +259,14 @@ export class StreamableHttpProxyServer {
     if (msg.method === 'tools/call' && (upstream as { result?: unknown }).result != null) {
       const params = msg.params as { name?: string; arguments?: Record<string, unknown> } | undefined;
       const toolName = params?.name || 'unknown';
-      let tenantId = 'default';
+      // The tenant the defense layer checked this call under, so that the two see the same session.
+      let tenantId = (msg as { _defenseTenantId?: string })._defenseTenantId ?? 'default';
       try {
-        tenantId = resolveTenantContext({
-          headers: req.headers as Record<string, string | string[] | undefined>,
-        }).tenantId;
+        tenantId =
+          (msg as { _defenseTenantId?: string })._defenseTenantId ??
+          resolveTenantContext({
+            headers: req.headers as Record<string, string | string[] | undefined>,
+          }).tenantId;
       } catch {
         /* use default */
       }
@@ -260,6 +279,7 @@ export class StreamableHttpProxyServer {
         policyEngine: this.opts.policy,
         transportLabel: 'streamable-http',
         toolArguments: params?.arguments,
+        sessionId: pre.session.sessionId,
       });
       if (inspected.blocked && inspected.blockResponse) {
         return inspected.blockResponse;
