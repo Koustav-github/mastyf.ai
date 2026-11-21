@@ -3,6 +3,7 @@ import { Mail } from 'lucide-react';
 import { SiteNav } from '@/components/SiteNav';
 import { SiteFooter } from '@/components/SiteFooter';
 import { safeAuth } from '@/lib/safe-auth';
+import { SUPPORT_MAILTO } from '@/lib/support';
 import './pilot.css';
 
 export const metadata: Metadata = {
@@ -41,9 +42,10 @@ const YOU_GET = [
   'A written summary for your security team',
 ] as const;
 
-// Where pilot requests go, as before. The body lists what helps us plan.
+// Pilot requests go to the support inbox. The body lists what helps us plan.
 const PILOT_MAIL =
-  'mailto:rudraneel93@gmail.com?subject=' +
+  SUPPORT_MAILTO +
+  '?subject=' +
   encodeURIComponent('Mastyf 30-day pilot') +
   '&body=' +
   encodeURIComponent(
