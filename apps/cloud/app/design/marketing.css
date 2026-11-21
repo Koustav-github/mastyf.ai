@@ -181,10 +181,10 @@ html:not([data-intro='play']) .hero__brand {
   }
 }
 
-/* Every public page (home, marketing pages, docs, certified scores): headings take the same gold
+/* Every public page (home, marketing pages, docs; not the certified pages): headings take the same gold
    as the name in the home hero, and running text is set in the strongest ink (white on dark,
    near-black on paper). The signed-in app keeps its own styling. */
-:is(main.home, main.page-main, main.docs__main, main.score-page) :is(h1, h2):not(.hero__title, :has(.flip)) {
+:is(main.home, main.page-main, main.docs__main):where(:not(.socket-shell > main)) :is(h1, h2):not(.hero__title, :has(.flip)) {
   --brand-lo: #8a7240;
   --brand-mid: #c9ad6c;
   --brand-hi: #f0dfb2;
@@ -202,24 +202,24 @@ html:not([data-intro='play']) .hero__brand {
   margin-inline: auto;
 }
 
-:root[data-theme='light'] :is(main.home, main.page-main, main.docs__main, main.score-page) :is(h1, h2):not(.hero__title, :has(.flip)) {
+:root[data-theme='light'] :is(main.home, main.page-main, main.docs__main):where(:not(.socket-shell > main)) :is(h1, h2):not(.hero__title, :has(.flip)) {
   --brand-lo: #4a2e17;
   --brand-mid: #7a5228;
   --brand-hi: #b98a4e;
 }
 
-:is(main.home, main.page-main, main.docs__main, main.score-page) :is(p, li),
+:is(main.home, main.page-main, main.docs__main):where(:not(.socket-shell > main)) :is(p, li),
 main.home .row__line {
   color: var(--ink-strong);
 }
 
 /* No small all-caps labels above headings anywhere on the public site. */
-:is(main.home, main.page-main, main.docs__main, main.score-page) .eyebrow {
+:is(main.home, main.page-main, main.docs__main):where(:not(.socket-shell > main)) .eyebrow {
   display: none;
 }
 
 /* Table headers, the docs sidebar title and pager labels read as plain words, not tracked caps. */
-:is(main.home, main.page-main, main.docs__main, main.score-page) :is(.label, .data-table th),
+:is(main.home, main.page-main, main.docs__main):where(:not(.socket-shell > main)) :is(.label, .data-table th),
 .docs .docs__nav-title {
   color: var(--ink-2);
   font-family: var(--font-ui, inherit);
