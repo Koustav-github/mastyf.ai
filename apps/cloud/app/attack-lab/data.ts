@@ -39,6 +39,16 @@ export const GENERATED = '2026-11-07';
 /** Benign corpus calls scored through the model on the same day: every one was allowed. */
 export const BENIGN_CHECK = { scored: 40, allowed: 40 };
 
+/** Protocol X's headline results, shown on the Attack Lab and the Protocol X page. */
+export const PX_RESULTS = {
+  /** Attacker success with no defense and with Protocol X, on AgentDojo's attacked cases. */
+  agentdojo: { before: '25%', after: '0%', cases: 249 },
+  /** Attacks our red team generated, none of them in the model's training data. */
+  novelAttacks: 777,
+  /** Median decision time on a laptop CPU. */
+  decisionTime: '~1 s',
+};
+
 export const HOW_SCENARIOS: HowScenario[] = [
   {
     id: 'benign-read',
@@ -156,6 +166,8 @@ export const ATTACKS: AttackEntry[] = [
 /** Sidebar outline: groups and the attack anchors under them. */
 export const OUTLINE = [
   { id: 'how-it-works', label: 'How Protocol X works', items: [] as { id: string; label: string }[] },
+  { id: 'try', label: 'Try an attack', items: [] as { id: string; label: string }[] },
+  { id: 'then-and-now', label: 'Then and now', items: [] as { id: string; label: string }[] },
   { id: 'novel', label: 'Novel attacks', items: ATTACKS.filter((a) => a.section === 'novel').map((a) => ({ id: a.id, label: a.title })) },
   { id: 'common', label: 'Common attacks', items: ATTACKS.filter((a) => a.section === 'common').map((a) => ({ id: a.id, label: a.title })) },
   { id: 'method', label: 'Method and limits', items: [] as { id: string; label: string }[] },

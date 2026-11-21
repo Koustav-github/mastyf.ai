@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import { GITHUB_REPO_URL } from '@/lib/github-links';
+import { MARKETPLACES } from '@/lib/marketplaces';
 import { SITE_NAME } from '@/lib/product-links';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '@/lib/support';
 
@@ -14,7 +15,6 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
       { href: '/download', label: 'Download Shield' },
       { href: '/docs', label: 'Documentation' },
       { href: '/certified', label: 'Certified MCPs' },
-      { href: '/platform', label: 'Platform architecture' },
       { href: '/docs/how-it-works#components', label: 'Mastyf Gateway' },
       { href: '/docs/how-it-works#components', label: 'Mastyf Swarm' },
       { href: '/trust', label: 'Mastyf Trust' },
@@ -39,10 +39,15 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
       { href: '/research', label: 'Read the paper' },
       { href: '/docs/security-model#guarantees', label: 'Guarantees and limitations' },
       { href: '/trust', label: 'Trust center and compliance' },
+      { href: '/funding', label: 'Funding and support' },
       { href: '/pilot', label: '30-day guided pilot' },
       { href: '/terms', label: 'Terms of service' },
       { href: '/privacy', label: 'Privacy policy' },
     ],
+  },
+  {
+    title: 'Get Mastyf',
+    links: MARKETPLACES.map((m) => ({ href: m.href, label: m.name, external: true })),
   },
 ];
 

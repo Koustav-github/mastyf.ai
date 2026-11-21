@@ -137,7 +137,7 @@ export function AcademicPaperHero({ standalone = false }: { standalone?: boolean
     <div className={`panel paper${standalone ? ' paper--standalone' : ''}`} id="academic-paper" data-reveal>
       <div className="paper__head">
         <div className="paper__badges">
-          <span className="badge badge-active">Open-access preprint, v{PAPER_VERSION}</span>
+          <span className="badge badge-active">Open-access preprint, {PAPER_VERSION}</span>
           <a className="badge" href={`https://doi.org/${ZENODO_DOI}`} target="_blank" rel="noopener noreferrer">
             DOI {ZENODO_DOI}
           </a>
@@ -215,9 +215,9 @@ export function AcademicPaperHero({ standalone = false }: { standalone?: boolean
             </div>
             <p>
               Evaluated across 6 distinct regimes totaling 6,662 instances (including UIUC InjecAgent, AgentDojo,
-              and AI Safety Bench), the integrated perimeter achieves <strong>99.52% defense</strong> on interactive
-              episodes, <strong>98.43% defense</strong> on InjecAgent at 267.7ms CPU latency, and{' '}
-              <strong>zero false alarms</strong> on benign workloads.
+              and AI Safety Bench), the paper reports <strong>99.52% defense</strong> on interactive episodes,{' '}
+              <strong>98.43% defense</strong> on InjecAgent at 267.7 ms CPU latency, and no false alarms on its
+              1,000-case benign set. These are the paper&apos;s results in its own setup.
             </p>
 
             <div className="paper__actions">

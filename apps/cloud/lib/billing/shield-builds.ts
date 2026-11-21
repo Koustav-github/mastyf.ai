@@ -16,7 +16,7 @@ export type ShieldPlatformInfo = {
   secondary?: ShieldBuild;
 };
 
-export const SHIELD_VERSION = process.env.NEXT_PUBLIC_SHIELD_VERSION || '0.4.2';
+export const SHIELD_VERSION = process.env.NEXT_PUBLIC_SHIELD_VERSION || '0.6.3';
 
 export const SHIELD_PLATFORM_ORDER: ShieldPlatform[] = ['windows', 'mac', 'linux'];
 
@@ -30,7 +30,7 @@ export const SHIELD_PLATFORMS: Record<ShieldPlatform, ShieldPlatformInfo> = {
     primary: {
       arch: 'x64',
       label: 'Installer (.exe)',
-      sha256: '64014af0decad278b5bc03864c83389e0935c36b1efc1ce0d1f10717effdd8bb',
+      sha256: 'c14919b5eec7915ca28180f34520572548188bade60d96f4b81b73dc61ce3905',
     },
   },
   mac: {
@@ -55,6 +55,15 @@ export function shieldPlatformOf(os?: string | null): ShieldPlatform {
   if (value === 'win' || value === 'windows') return 'windows';
   if (value === 'linux') return 'linux';
   return 'mac';
+}
+
+/** The listed build a request names, by the same arch rules as the storage key lookup. */
+export function shieldBuildFor(platform: ShieldPlatform, arch?: string | null): ShieldBuild {
+  const info = SHIELD_PLATFORMS[platform];
+  const variant = (arch || '').trim().toLowerCase();
+  if (platform === 'mac' && (variant === 'x64' || variant === 'intel')) return info.secondary ?? info.primary;
+  if (platform === 'linux' && variant === 'deb') return info.secondary ?? info.primary;
+  return info.primary;
 }
 
 /** Read on each call, so a deploy with a new list takes effect without code changes. */
